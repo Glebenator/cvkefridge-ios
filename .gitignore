@@ -1,0 +1,19 @@
+# Swift package build output, the project that XcodeGen generates, and Xcode user state.
+.build/
+.swiftpm/
+/CVKEFridge.xcodeproj/
+DerivedData/
+xcuserdata/
+*.xcresult
+/CVKEFridge/Info.plist
+/build/
+/captures/
+/attachments-*/
+build.log
+
+# Local tools, test output, and credentials.
+/artifacts/
+__pycache__/
+.DS_Store
+.env
+.env.*

@@ -1,0 +1,15 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CVKE Fridge" : {
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "CVKE Fridge" } } }
+    },
+    "Food inventory for the fridge. This first build has the start screen only." : {
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Food inventory for the fridge. This first build has the start screen only." } } }
+    },
+    "Version %@" : {
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Version %@" } } }
+    }
+  },
+  "version" : "1.0"
+}

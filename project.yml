@@ -1,0 +1,83 @@
+# XcodeGen project for the iOS app. Run `xcodegen generate` in this folder to make CVKEFridge.xcodeproj.
+# The generated project is not in Git. See README.md.
+name: CVKEFridge
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    DEAD_CODE_STRIPPING: YES
+packages:
+  CVKEFridgeCore:
+    path: CVKEFridgeCore
+targets:
+  CVKEFridge:
+    type: application
+    platform: iOS
+    sources:
+      - path: CVKEFridge
+    dependencies:
+      - package: CVKEFridgeCore
+    info:
+      path: CVKEFridge/Info.plist
+      properties:
+        CFBundleDisplayName: CVKE Fridge
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+  CVKEFridgeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: CVKEFridgeUITests
+    dependencies:
+      - target: CVKEFridge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: CVKEFridge
+schemes:
+  CVKEFridge:
+    build:
+      targets:
+        CVKEFridge: all
+        CVKEFridgeUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: CVKEFridgeUITests
+    archive:
+      config: Release
