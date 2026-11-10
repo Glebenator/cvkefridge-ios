@@ -1,4 +1,5 @@
-# Tests the Swift package, builds the iOS app with Xcode, and runs the start screen test on a simulator.
+# Compares the copy of the shared specification in spec/ with the cvkefridge repository, tests the Swift package
+# with the vectors in spec/vectors/, builds the iOS app with Xcode, and runs the start screen test on a simulator.
 # The test runs in light and in dark appearance. Its screenshots are an artifact.
 name: iOS
 
@@ -21,6 +22,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Check the copy of the shared specification
+        run: python3 scripts/update-spec.py --check
       - name: Show the toolchain
         run: xcodebuild -version && swift --version
       - name: Test the product rules

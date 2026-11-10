@@ -20,6 +20,11 @@ CVKE Fridge has three repositories. This repository is the native iOS app.
 - Use Swift, SwiftUI, and the iOS 26 design. Generate the Xcode project with XcodeGen from `project.yml`.
 - Keep the product rules in the `CVKEFridgeCore` Swift package. It uses Foundation only. Each file in it has a file of
   the same name in the `:core` module of cvkefridge-android, with the same behaviour and the same test cases.
+- The core rules follow `spec/rules.md`. If the words are not clear, `spec/tools/vectors.py` and the vectors in
+  `spec/vectors/` decide.
+- `spec/` is an exact copy of the `spec/` folder of cvkefridge, at the commit in `spec.ref`. Do not edit `spec/` or
+  `spec.ref`. To change a rule, change it in the cvkefridge repository first. Then run
+  `python3 scripts/update-spec.py <commit>` here.
 - Keep UIKit and SwiftUI objects out of `CVKEFridgeCore`.
 - Use observable models with one-way data flow. Pass dependencies through initializers.
 - Add a dependency only when it solves a current problem. Do not add unused libraries.
@@ -42,11 +47,13 @@ CVKE Fridge has three repositories. This repository is the native iOS app.
 ## Tests and delivery
 
 - Run `swift test` in `CVKEFridgeCore` for changes to the product rules.
+- The core tests run each case of the vectors in `spec/vectors/` and compare the complete expected result. Do not
+  skip, weaken, or change a vector. If a vector seems wrong, report it and correct it in cvkefridge.
 - Run the UI test on a simulator for functional changes.
 - Add unit tests only for calculations or failure cases that the UI test cannot cover well.
 - Restore the simulator appearance and text size after tests.
-- The workflow `.github/workflows/ios.yml` runs the core tests and the UI test for each push to `main` and each pull
-  request. Check its result before you report a change as verified.
+- The workflow `.github/workflows/ios.yml` compares `spec/` with cvkefridge, and runs the core tests and the UI test,
+  for each push to `main` and each pull request. Check its result before you report a change as verified.
 - Inspect light mode, dark mode, and the largest text size after layout changes.
 - Report what was tested, what failed, and what still needs a real iPhone.
 - Keep generated output, the generated Xcode project, signing data, and Xcode user state out of Git.
