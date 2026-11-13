@@ -3,7 +3,7 @@ import Testing
 @testable import CVKEFridgeCore
 
 /// Checks the facts of `spec/vectors/food-table.json` about `spec/foods.json`: the number of foods, the number with
-/// days for each storage kind, and some foods. They prove that `FoodTable.decode` reads the whole table. The Android
+/// days for each storage kind, the number with each usual storage kind, and some foods. They prove that `FoodTable.decode` reads the whole table. The Android
 /// test `FoodTableVectorsTest` checks the same facts.
 struct FoodTableVectorsTests {
     @Test func theWholeTableIsRead() throws {
@@ -12,8 +12,10 @@ struct FoodTableVectorsTests {
         let expected = try file.object("expect")
 
         var withDays: [String: Any] = [:]
+        var withUsualKind: [String: Any] = [:]
         for kind in StorageKind.allCases {
             withDays[kind.rawValue] = table.foods.filter { $0.days[kind] != nil }.count
+            withUsualKind[kind.rawValue] = table.foods.filter { $0.usualKind == kind }.count
         }
 
         var samples: [[String: Any]] = []
@@ -32,10 +34,26 @@ struct FoodTableVectorsTests {
                 "name": food.name,
                 "category": food.category.rawValue,
                 "days": days,
+                "usualKind": Vectors.orNull(food.usualKind?.rawValue),
             ])
         }
 
-        let actual: [String: Any] = ["count": table.foods.count, "withDays": withDays, "samples": samples]
+        let actual: [String: Any] = [
+            "count": table.foods.count,
+            "withDays": withDays,
+            "withUsualKind": withUsualKind,
+            "samples": samples,
+        ]
         try Vectors.check(actual, expected, "food-table.json")
+    }
+
+    @Test func aUsualKindThatIsNotAStorageKindIsAnError() {
+        let text = #"{"foods":[{"id":"a","name":"A","category":"dairy","days":{},"usualKind":"shelf"}]}"#
+        #expect(throws: (any Error).self) { try FoodTable.decode(text) }
+    }
+
+    @Test func theUsualKindCanBeAbsent() throws {
+        let text = #"{"foods":[{"id":"a","name":"A","category":"dairy","days":{"fridge":3}}]}"#
+        #expect(try FoodTable.decode(text).food(id: "a")?.usualKind == nil)
     }
 }

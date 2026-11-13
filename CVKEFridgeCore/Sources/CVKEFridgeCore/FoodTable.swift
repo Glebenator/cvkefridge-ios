@@ -5,7 +5,8 @@ import Foundation
 // behaviour.
 
 /// A food in the table of foods. `days` has the number of days that the food can be kept in each storage kind.
-/// A storage kind can be absent.
+/// A storage kind can be absent. `usualKind` is the storage kind where people usually keep the food when they bring it
+/// home, or nil. The food can have no days for it. It gives no estimate.
 public struct Food: Hashable, Sendable {
     public let id: String
     public let name: String
@@ -13,6 +14,7 @@ public struct Food: Hashable, Sendable {
     public let category: Category
     public let keywords: [String]
     public let days: [StorageKind: Int]
+    public let usualKind: StorageKind?
 
     public init(
         id: String,
@@ -20,7 +22,8 @@ public struct Food: Hashable, Sendable {
         subtitle: String?,
         category: Category,
         keywords: [String],
-        days: [StorageKind: Int]
+        days: [StorageKind: Int],
+        usualKind: StorageKind? = nil
     ) {
         self.id = id
         self.name = name
@@ -28,6 +31,7 @@ public struct Food: Hashable, Sendable {
         self.category = category
         self.keywords = keywords
         self.days = days
+        self.usualKind = usualKind
     }
 }
 
@@ -55,8 +59,8 @@ public struct FoodTable: Equatable, Sendable {
     }
 
     /// The table in a JSON text in the format of `spec/foods.json`: an object with a `foods` list. Other keys of the
-    /// object have no effect. `subtitle` and `keywords` can be absent. It throws when the text has a different
-    /// format, a category that is not known, or a `days` key that is not a storage kind.
+    /// object have no effect. `subtitle`, `keywords`, and `usualKind` can be absent. It throws when the text has a
+    /// different format, a category that is not known, or a `days` key or a `usualKind` that is not a storage kind.
     public static func decode(_ text: String) throws -> FoodTable {
         let file = try JSONDecoder().decode(FoodFile.self, from: Data(text.utf8))
         var foods: [Food] = []
@@ -71,6 +75,13 @@ public struct FoodTable: Equatable, Sendable {
                 }
                 days[kind] = count
             }
+            var usualKind: StorageKind? = nil
+            if let key = line.usualKind {
+                guard let kind = StorageKind(rawValue: key) else {
+                    throw JSONFormatError("The food \(line.id) has an unknown usual storage kind: \(key)")
+                }
+                usualKind = kind
+            }
             foods.append(
                 Food(
                     id: line.id,
@@ -78,7 +89,8 @@ public struct FoodTable: Equatable, Sendable {
                     subtitle: line.subtitle,
                     category: category,
                     keywords: line.keywords ?? [],
-                    days: days
+                    days: days,
+                    usualKind: usualKind
                 )
             )
         }
@@ -99,4 +111,5 @@ private struct FoodLine: Decodable {
     let category: String
     let keywords: [String]?
     let days: [String: Int]
+    let usualKind: String?
 }
