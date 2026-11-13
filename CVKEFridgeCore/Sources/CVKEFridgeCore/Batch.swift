@@ -5,8 +5,12 @@ import Foundation
 
 /// Where an expiry date comes from.
 public enum ExpirySource: String, CaseIterable, Sendable {
+    /// The date on the package, which the person entered.
     case printed
+    /// The date from the table of foods.
     case estimated
+    /// A later date that the person selected because the food is still good.
+    case chosen
 }
 
 /// An expiry date and its source. A batch has both, or none of the two.
