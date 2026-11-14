@@ -38,13 +38,24 @@ public struct Product: Hashable, Sendable {
     public let barcode: String?
     /// The identifier of a food in the table of foods.
     public let foodId: String?
+    /// The text that the person wrote about the product. The core keeps it as it is.
+    public let note: String?
 
-    public init(id: String, name: String, category: Category, unit: MeasureUnit?, barcode: String?, foodId: String?) {
+    public init(
+        id: String,
+        name: String,
+        category: Category,
+        unit: MeasureUnit?,
+        barcode: String?,
+        foodId: String?,
+        note: String? = nil
+    ) {
         self.id = id
         self.name = name
         self.category = category
         self.unit = unit
         self.barcode = barcode
         self.foodId = foodId
+        self.note = note
     }
 }

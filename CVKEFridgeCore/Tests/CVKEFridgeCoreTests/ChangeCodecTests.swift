@@ -46,6 +46,7 @@ struct ChangeCodecTests {
             #"{"id":"c-1","at":"1","origin":"phone-a","body":{"type":"changeUndone","changeId":"c-0"}}"#,
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"batchUsed","batchId":"b-1","quantity":"500","date":"2026-11-10"}}"#,
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"productDeleted","productId":5}}"#,
+            #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"productSaved","product":{"id":"p-1","name":"Jam","category":"condiment","unit":null,"barcode":null,"foodId":null,"note":5}}}"#,
             // Missing keys.
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"batchDeleted"}}"#,
             #"{"id":"c-1","at":1,"body":{"type":"batchDeleted","batchId":"b-1"}}"#,
