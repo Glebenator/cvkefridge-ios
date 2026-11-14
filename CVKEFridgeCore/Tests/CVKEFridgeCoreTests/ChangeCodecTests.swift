@@ -16,9 +16,18 @@ struct ChangeCodecTests {
                 let encoded = ChangeCodec.encode(decoded)
                 let again = try ChangeCodec.decode(encoded)
                 #expect(again == decoded, "\(name): \(text)")
-                // The encoded text has the JSON shape of the vector file, with each null.
+                // The encoded text has the JSON shape of the vector file, with each null. A product with no "note"
+                // key has no note, and the codec writes the key with null (rule 7.2).
+                var expected = change
+                if var body = expected["body"] as? [String: Any],
+                   var product = body["product"] as? [String: Any],
+                   product["note"] == nil {
+                    product["note"] = NSNull()
+                    body["product"] = product
+                    expected["body"] = body
+                }
                 let shape = try Vectors.canonical(JSONSerialization.jsonObject(with: Data(encoded.utf8)))
-                #expect(shape == text, "\(name): \(text)")
+                #expect(shape == (try Vectors.canonical(expected)), "\(name): \(text)")
                 count += 1
             }
         }
