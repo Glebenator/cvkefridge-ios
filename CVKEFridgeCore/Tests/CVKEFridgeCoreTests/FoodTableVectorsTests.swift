@@ -35,6 +35,8 @@ struct FoodTableVectorsTests {
                 "category": food.category.rawValue,
                 "days": days,
                 "usualKind": Vectors.orNull(food.usualKind?.rawValue),
+                "common": food.common,
+                "aliases": food.aliases,
             ])
         }
 
@@ -42,6 +44,8 @@ struct FoodTableVectorsTests {
             "count": table.foods.count,
             "withDays": withDays,
             "withUsualKind": withUsualKind,
+            "common": table.foods.filter { $0.common }.count,
+            "aliases": table.foods.reduce(0) { $0 + $1.aliases.count },
             "samples": samples,
         ]
         try Vectors.check(actual, expected, "food-table.json")
@@ -54,6 +58,9 @@ struct FoodTableVectorsTests {
 
     @Test func theUsualKindCanBeAbsent() throws {
         let text = #"{"foods":[{"id":"a","name":"A","category":"dairy","days":{"fridge":3}}]}"#
-        #expect(try FoodTable.decode(text).food(id: "a")?.usualKind == nil)
+        let food = try FoodTable.decode(text).food(id: "a")
+        #expect(food?.usualKind == nil)
+        #expect(food?.common == false)
+        #expect(food?.aliases == [])
     }
 }
