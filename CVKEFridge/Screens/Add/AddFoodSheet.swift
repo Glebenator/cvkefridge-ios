@@ -98,6 +98,8 @@ private struct AddFoodFormView: View {
     @Environment(FridgeModel.self) private var model
     @Environment(Navigator.self) private var navigator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The showing of this form. A save that ends after the form closed does not close a newer sheet.
+    @Environment(\.sheetPresentation) private var presentation
 
     @State private var entry: AddFoodEntry?
     /// The token of this form for its writes and its photo.
@@ -545,7 +547,7 @@ private struct AddFoodFormView: View {
         // The saved food got the photo. A photo that it did not get, because it has one, goes.
         model.discardFormPhoto(token: token)
         if scan != nil {
-            navigator.finishAddFood(route, scanNext: another)
+            navigator.finishAddFood(route, presentation: presentation, scanNext: another)
         } else if another {
             entry = AddFoodEntry((entry?.form ?? start()).next())
             found = []
@@ -553,7 +555,7 @@ private struct AddFoodFormView: View {
             scroll(proxy, to: productId == nil ? .top : .name, anchor: .top)
             focus = .name
         } else {
-            navigator.finishAddFood(route)
+            navigator.finishAddFood(route, presentation: presentation)
         }
     }
 

@@ -5,38 +5,73 @@ import SwiftUI
 ///
 /// A `SheetRoute` with the style `form` shows as a sheet, and with the style `cover` as a screen that covers the
 /// window.
+///
+/// The layer shows one presentation at a time. When the navigator puts a different presentation at this level, for
+/// example the scanner in the place of the add form, the layer first closes the presentation that shows. It shows the
+/// new presentation when the system tells that the first one closed (`onDismiss`). UIKit does not show a presentation
+/// while a presentation of the same view closes, so a replacement in one update can fail with no error.
 struct SheetLayer: ViewModifier {
     let level: Int
 
     @Environment(Navigator.self) private var navigator
+    /// The presentation that the system shows, or nil.
+    @State private var shown: SheetPresentation?
+    /// True from the time that the layer closes a presentation until the system tells that it closed.
+    @State private var closing = false
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: route(.form)) { route in
-                SheetRoot(route: route, level: level + 1)
+            .sheet(item: presentation(.form), onDismiss: closed) { presentation in
+                SheetRoot(presentation: presentation, level: level + 1)
                     .presentationSizing(.form)
             }
-            .fullScreenCover(item: route(.cover)) { route in
-                SheetRoot(route: route, level: level + 1)
+            .fullScreenCover(item: presentation(.cover), onDismiss: closed) { presentation in
+                SheetRoot(presentation: presentation, level: level + 1)
+            }
+            .onChange(of: navigator.presentation(at: level), initial: true) { _, wanted in
+                follow(wanted)
             }
     }
 
-    /// The sheet of this level when it has the `style`. When the system closes the sheet, for example after a swipe
-    /// down, the navigator closes it and each sheet above it.
-    private func route(_ style: SheetRoute.Style) -> Binding<SheetRoute?> {
+    /// Makes the system show the presentation of the navigator.
+    private func follow(_ wanted: SheetPresentation?) {
+        if shown == wanted || closing {
+            // While a presentation closes, `closed()` shows the newest wanted presentation.
+            return
+        }
+        if shown == nil {
+            shown = wanted
+        } else {
+            closing = true
+            shown = nil
+        }
+    }
+
+    /// The system closed the presentation of this level.
+    private func closed() {
+        closing = false
+        shown = nil
+        follow(navigator.presentation(at: level))
+    }
+
+    /// The presentation of this level when it has the `style`. When the system closes the presentation, for example
+    /// after a swipe down, the navigator closes it and each sheet above it.
+    private func presentation(_ style: SheetRoute.Style) -> Binding<SheetPresentation?> {
         Binding(
             get: {
-                guard let route = navigator.sheet(at: level), route.style == style else {
+                guard let shown, shown.route.style == style else {
                     return nil
                 }
-                return route
+                return shown
             },
-            set: { route in
-                // A change of the route at this level also arrives here, with the old style. Only a sheet that the
-                // system closed has no route of this style now.
-                if route == nil, navigator.sheet(at: level)?.style == style {
-                    navigator.closeSheets(from: level)
+            set: { new in
+                guard new == nil, let old = shown, old.route.style == style else {
+                    return
                 }
+                // The system closes the presentation. `closed()` comes after the end of the animation.
+                closing = true
+                shown = nil
+                navigator.closeSheets(from: old)
             }
         )
     }
@@ -45,17 +80,22 @@ struct SheetLayer: ViewModifier {
 /// The root view of a sheet of the navigator: the screen of the route, the place of the messages above it, and the
 /// layer for a sheet above it.
 struct SheetRoot: View {
-    let route: SheetRoute
+    let presentation: SheetPresentation
     /// The number of this sheet: 1 for the first sheet above the tabs.
     let level: Int
 
     @Environment(Navigator.self) private var navigator
 
+    private var route: SheetRoute {
+        presentation.route
+    }
+
     var body: some View {
         screen
             .noticeHost()
             // While the sheet closes, the message shows below it.
-            .environment(\.noticeHostEnabled, navigator.sheets.count >= level)
+            .environment(\.noticeHostEnabled, navigator.presentation(at: level - 1) == presentation)
+            .environment(\.sheetPresentation, presentation.id)
             .modifier(SheetLayer(level: level))
             .tint(Palette.primary)
     }
