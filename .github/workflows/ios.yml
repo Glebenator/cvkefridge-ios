@@ -1,6 +1,6 @@
 # Compares the copy of the shared specification in spec/ with the cvkefridge repository, tests the Swift package
-# with the vectors in spec/vectors/, builds the iOS app with Xcode, and runs the start screen test on a simulator.
-# The test runs in light and in dark appearance. Its screenshots are an artifact.
+# with the vectors in spec/vectors/, builds the iOS app with Xcode, and runs the UI tests of the shell on a simulator.
+# The tests run in light and in dark appearance. Their screenshots are an artifact.
 name: iOS
 
 on:
@@ -70,22 +70,22 @@ jobs:
           grep -E "error:" build.log | sort -u | head -150 || true
           # A compiler crash has no error line. Its stack dump names the file and the function.
           grep -E "While (evaluating|emitting|type-checking)|Apple Swift version" build.log | head -20 || true
-      - name: Run the start screen test in light mode
+      - name: Run the shell tests in light mode
         id: light
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
           xcodebuild test-without-building -project CVKEFridge.xcodeproj -scheme CVKEFridge \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
-            -only-testing:CVKEFridgeUITests/StartUITests/test1StartScreen -resultBundlePath light.xcresult | tail -40
-      - name: Run the start screen test in dark mode
+            -only-testing:CVKEFridgeUITests/ShellUITests -resultBundlePath light.xcresult | tail -40
+      - name: Run the shell tests in dark mode
         if: always() && steps.build.outcome == 'success'
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
           xcodebuild test-without-building -project CVKEFridge.xcodeproj -scheme CVKEFridge \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
-            -only-testing:CVKEFridgeUITests/StartUITests/test1StartScreen -resultBundlePath dark.xcresult | tail -40
+            -only-testing:CVKEFridgeUITests/ShellUITests -resultBundlePath dark.xcresult | tail -40
       - name: Export the screenshots
         if: always()
         run: |

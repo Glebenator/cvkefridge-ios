@@ -32,11 +32,11 @@ The workflow [`ios.yml`](.github/workflows/ios.yml) runs for each push to `main`
 | Copy of the shared specification | `python3 scripts/update-spec.py --check` | Yes |
 | Product rules | `swift test` in `CVKEFridgeCore`, with each case in `spec/vectors/` | Yes |
 | App and UI test build | `xcodebuild build-for-testing`, without signing | Yes |
-| Start screen in light mode | `StartUITests/test1StartScreen` | Yes |
-| Start screen in dark mode | `StartUITests/test1StartScreen` | Yes |
+| The shell in light mode | `ShellUITests` | Yes |
+| The shell in dark mode | `ShellUITests` | Yes |
 | Real iPhone checks | Manual | No |
 
-Each run uploads the screenshots of the start screen as the `ios-captures` artifact.
+Each run uploads the screenshots of the shell tests as the `ios-captures` artifact.
 
 ## Build and run
 
@@ -56,7 +56,9 @@ The app needs no API key.
   each case through the core. They compare the complete expected result. A missing file, or a section with no cases,
   makes a test fail. The Android core tests use the same vector files. The core uses Foundation only, so that the
   tests can also run on Linux with the Swift toolchain.
-- **UI test.** It starts the app, checks the title and the version, and attaches a screenshot.
+- **UI tests.** `ShellUITests` starts the debug build with the sample inventory in a data folder of its own. It
+  checks the tabs, the add button, a form in a sheet, and a message with "Undo", and it attaches screenshots.
+  `CVKEFridge/App/LaunchOptions.swift` has the launch arguments of the debug build, for example `-inventory sample`.
 
   ```sh
   xcodebuild test -project CVKEFridge.xcodeproj -scheme CVKEFridge -destination "platform=iOS Simulator,name=<iPhone>"
