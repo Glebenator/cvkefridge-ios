@@ -880,6 +880,10 @@ final class FridgeModel {
     ///
     /// Settings that are not read change nothing: the reminders that are planned stay. The Android app reads such
     /// settings as "off" and removes its alarm.
+    ///
+    /// The reminder of a date comes one time only, also when the person then selects a later time. Only a reminder
+    /// that iOS showed makes its date the last date (`ReminderPlan.lastDate`): a time of the settings that passed is
+    /// not evidence, because the person can change the time after the plan.
     private func planReminders() async {
         guard var settings = reminders.settings, let inventory = loaded?.inventory else {
             return
@@ -888,12 +892,8 @@ final class FridgeModel {
         let now = clock.now()
         let zone = clock.timeZone()
         let today = ReminderSchedule.dateOf(now, timeZone: zone)
-        if settings.enabled, let next = settings.next, next <= today,
-           ReminderSchedule.triggerAt(next, time: settings.time, timeZone: zone) <= now {
-            // The time of the reminder that was planned for `next` passed, so iOS showed it. The reminder of a date
-            // comes one time only, also when the person then selects a later time.
-            settings.lastDate = max(next, ReminderSchedule.knownLastDate(settings.last, now: now, timeZone: zone) ?? next).text
-        }
+        let shown = await reminderService.shownDates()
+        settings.lastDate = ReminderPlan.lastDate(settings, shown: shown, now: now, timeZone: zone)?.text
         let planned = ReminderPlan.reminders(inventory: inventory, settings: settings, now: now, timeZone: zone)
         settings.nextDate = planned.first?.date.text
         let foods = settings.enabled ? ReminderRules.foods(inventory, today: today, leadDays: settings.leadDays) : []
