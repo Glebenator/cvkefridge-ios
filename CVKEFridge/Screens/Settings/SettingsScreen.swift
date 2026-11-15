@@ -41,14 +41,20 @@ struct SettingsScreen: View {
 
     var body: some View {
         Form {
-            remindersSection
-            #if DEBUG
-            if let settings = model.reminders.settings, settings.enabled {
-                testSection(settings)
+            // The rows have the surface colours of the app, as the rows of each form.
+            Group {
+                remindersSection
+                #if DEBUG
+                if let settings = model.reminders.settings, settings.enabled {
+                    testSection(settings)
+                }
+                #endif
+                aboutSection
             }
-            #endif
-            aboutSection
+            .listRowBackground(Palette.surfaceContainer)
         }
+        .scrollContentBackground(.hidden)
+        .background(Palette.surface.ignoresSafeArea())
         .navigationTitle("Settings")
         .accessibilityIdentifier("settings_screen")
         .haptic(.success, trigger: turnedOn)

@@ -58,7 +58,14 @@ struct FoodCard: View {
                                 category
                             }
                         }
-                        status
+                        if large {
+                            // The quantity and the days left do not fit on one line. On two lines, the icon of
+                            // the status stays with the words, and no word breaks in two.
+                            Text(verbatim: Wording.quantity(row.quantity, unit: row.unit))
+                            daysLeft
+                        } else {
+                            status
+                        }
                         if row.expiryDateCount > 1 {
                             Text(verbatim: Wording.expiryDateCount(row.expiryDateCount))
                         }
@@ -130,6 +137,20 @@ struct FoodCard: View {
         case .fresh, .noExpiryDate:
             line.append(days)
             return Text(line)
+        }
+    }
+
+    /// The days left in the colour of the freshness, on a line of their own. An expiring or an expired food has the
+    /// icon of its status before the words.
+    private var daysLeft: Text {
+        var days = AttributedString(Wording.expiry(daysLeft: row.daysLeft, expiry: row.expiry))
+        days.foregroundColor = row.freshness.color
+        switch row.freshness {
+        case .expiring, .expired:
+            let icon = Text(Image(icon: row.freshness.icon, filled: true)).foregroundStyle(row.freshness.color)
+            return Text("\(icon)\u{00A0}\(Text(days))", comment: "The icon of the status of a food, and its days left.")
+        case .fresh, .noExpiryDate:
+            return Text(days)
         }
     }
 
@@ -216,14 +237,14 @@ private struct FoodCardMenu: View {
 extension View {
     /// The swipes of a food card in a list: a swipe from the leading side records the oldest batch as used, and a
     /// swipe from the trailing side records it as thrown away. A full swipe does the action. The two sides have
-    /// different colours, icons, and words, and the person can undo each one with the message.
+    /// different colours, icons, and words, and the person can undo each one with the message. The message gives
+    /// the haptic signal of the action, so the swipe adds no second signal.
     ///
     /// The colours are dark tones of the green and of the apricot of the scheme, the same in light and in dark, so
     /// that the white icon of the system has enough contrast on them.
     func foodCardSwipes(_ onAction: @escaping (FoodCardAction) -> Void) -> some View {
         swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button {
-                Haptic.commit.play()
                 onAction(.useOldest)
             } label: {
                 Label("Used", icon: .check)
@@ -233,7 +254,6 @@ extension View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
-                Haptic.commit.play()
                 onAction(.throwAwayOldest)
             } label: {
                 Label("Thrown away", icon: .delete)
