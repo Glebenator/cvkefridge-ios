@@ -25,7 +25,7 @@ final class AppEnvironment {
         #if DEBUG
         folders = DebugLaunch.folders(for: options) ?? folders
         transport = DebugLaunch.transport(for: options) ?? transport
-        if options.isUITest {
+        if options.isUITest, !options.usesSystemNotifications {
             reminders = FixtureReminderService(access: options.notificationAccess ?? .ask)
         }
         #endif

@@ -233,25 +233,49 @@ final class LocalReminderService: NSObject, ReminderService, UNUserNotificationC
 
     // MARK: UNUserNotificationCenterDelegate
 
+    // The two functions have the completion handler of the system, and they are not `async`. UIKit must get the call
+    // of the handler on the main thread: after a tap, the handler makes the snapshot of the app. Swift runs an `async`
+    // function of this class on a thread of its pool, and calls the handler there. UIKit then stops the app
+    // (`-[UIApplication _performBlockAfterCATransactionCommitSynchronizes:]`).
+
     /// A reminder that comes while the app is open shows as a banner with its sound, and it goes to the Notification
     /// Center. A new text of a reminder that iOS already showed goes only to the Notification Center.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
-        willPresent notification: UNNotification
-    ) async -> UNNotificationPresentationOptions {
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
         record(notification)
-        if notification.request.content.userInfo[Self.quietKey] as? Bool == true {
-            return [.list]
-        }
-        return [.banner, .list, .sound]
+        let quiet = notification.request.content.userInfo[Self.quietKey] as? Bool == true
+        let options: UNNotificationPresentationOptions = quiet ? [.list] : [.banner, .list, .sound]
+        Self.onMainThread { completionHandler(options) }
     }
 
     /// The person selected a reminder: the app shows My Fridge with the food that needs attention.
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
         record(response.notification)
         if Self.isReminder(response.notification.request.identifier),
            response.actionIdentifier == UNNotificationDefaultActionIdentifier {
             tapContinuation.yield()
+        }
+        Self.onMainThread(completionHandler)
+    }
+
+    /// Runs the completion handler of the system on the main thread. The system calls the delegate on the main
+    /// thread, and the handler then runs before the delegate function returns. From a different thread, the handler
+    /// goes to the main queue.
+    private static func onMainThread(_ handler: @escaping () -> Void) {
+        if Thread.isMainThread {
+            handler()
+        } else {
+            // The handler of the system is not `Sendable` for the compiler. It is safe to give it to the main queue,
+            // because nothing else has it.
+            nonisolated(unsafe) let handler = handler
+            DispatchQueue.main.async { handler() }
         }
     }
 }

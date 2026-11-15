@@ -15,7 +15,7 @@ import Foundation
 /// | `-today 2026-11-12` | Uses this date as today. The clock stays at 12:00 of the date. |
 /// | `CVKE_CHANGE_LOG` | Replaces the change log with this text: one change on each line, as `ChangeCodec` writes it. A line that is not a change stays in the file. |
 /// | `CVKE_HTTP_FIXTURES` | The answers of the product lookup, as JSON: `{"<barcode>": {"status": 200, "body": "…"}}`, or `{"<barcode>": {"error": "timeout"}}` (`timeout` or `noConnection`). A barcode that is not there gets `"*"`, or no connection. |
-/// | `CVKE_NOTIFICATIONS` | With `-uiTestStore`: what the notification permission says: `ask` (default), `allowed`, `blocked`, or `alertsOff`. |
+/// | `CVKE_NOTIFICATIONS` | With `-uiTestStore`: what the notification permission says: `ask` (default), `allowed`, `blocked`, or `alertsOff`. With `system`, the reminders use the notifications of iOS, for the test of a tap on a reminder. |
 struct LaunchOptions: Sendable {
     enum InventoryRequest: String, Sendable {
         case sample
@@ -30,6 +30,8 @@ struct LaunchOptions: Sendable {
     var changeLog: String?
     var httpFixtures: String?
     var notificationAccess: NotificationAccess?
+    /// True when a UI test uses the notifications of iOS, and not a fixed notification permission.
+    var usesSystemNotifications = false
 
     /// True when a UI test started the app with a data folder of its own.
     var isUITest: Bool {

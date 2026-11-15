@@ -29,6 +29,7 @@ enum DebugLaunch {
         case "blocked": options.notificationAccess = .blocked
         case "alertsOff": options.notificationAccess = .alertsOff
         case "ask": options.notificationAccess = .ask
+        case "system": options.usesSystemNotifications = true
         default: break
         }
         return options
