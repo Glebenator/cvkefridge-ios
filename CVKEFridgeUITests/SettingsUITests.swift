@@ -61,14 +61,17 @@ final class SettingsUITests: FridgeUITestCase {
         expect(app.alerts["Allow notifications"], "No explanation the second time").buttons["Continue"].tap()
         waitFor(reminderSwitch, value: "1", "Reminders did not go on after the permission")
         expect(app.datePickers["reminders_time"], "No time after reminders went on")
-        expect(app.buttons["reminders_lead"], "No lead time after reminders went on")
+        // With the largest text, the rows below the time are below the screen.
+        scrollTo(app.buttons["reminders_lead"], "No lead time after reminders went on")
         // The clock of the test is at 12:00, so the reminder at 9:00 of today has passed.
-        let next = expect(app.staticTexts["reminders_next"], "No next reminder")
+        let next = scrollTo(app.staticTexts["reminders_next"], "No next reminder")
         XCTAssertEqual(text(next), "Next reminder: tomorrow at 9:00 AM.")
         XCTAssertFalse(app.staticTexts["notification_access_problem"].exists, "A problem shows with notifications allowed")
         capture("settings-reminders-on")
 
         // Off removes the settings of the reminder.
+        app.swipeDown(velocity: .fast)
+        app.swipeDown(velocity: .fast)
         toggleReminders()
         waitFor(reminderSwitch, value: "0", "Reminders did not go off")
         XCTAssertFalse(app.datePickers["reminders_time"].exists, "The time stays with reminders off")
@@ -83,13 +86,13 @@ final class SettingsUITests: FridgeUITestCase {
         XCTAssertFalse(app.alerts.firstMatch.exists, "An explanation came with notifications allowed")
 
         // The lead time, in the menu of the picker.
-        let lead = expect(app.buttons["reminders_lead"], "No lead time")
+        let lead = scrollTo(app.buttons["reminders_lead"], "No lead time")
         lead.tap()
         expect(app.buttons["1 day before the expiry date"], "The menu has no lead time of one day").tap()
         waitFor(lead, labelContaining: "1 day before the expiry date", "The lead time did not change")
 
         // The time, in the compact time picker.
-        let time = expect(app.datePickers["reminders_time"], "No time")
+        let time = scrollTo(app.datePickers["reminders_time"], "No time")
         time.tap()
         let wheels = app.pickerWheels
         expect(wheels.firstMatch, "The time picker has no wheels")
@@ -97,8 +100,8 @@ final class SettingsUITests: FridgeUITestCase {
         wheels.element(boundBy: 1).adjust(toPickerWheelValue: "30")
         capture("settings-time-picker")
         // A tap outside the picker closes it.
-        app.navigationBars["Settings"].tap()
-        let next = expect(app.staticTexts["reminders_next"], "No next reminder")
+        app.navigationBars["Settings"].firstMatch.tap()
+        let next = scrollTo(app.staticTexts["reminders_next"], "No next reminder")
         waitFor(next, labelContaining: "Next reminder: tomorrow at 7:30 AM.", "The next reminder does not have the new time")
 
         // A new start reads the same settings from the file.
@@ -106,8 +109,8 @@ final class SettingsUITests: FridgeUITestCase {
         launch(notifications: "allowed", keepsStore: true)
         openSettings()
         waitFor(reminderSwitch, value: "1", "Reminders are not on after a restart")
-        waitFor(app.buttons["reminders_lead"], labelContaining: "1 day before the expiry date", "The lead time is not kept")
-        XCTAssertEqual(text(app.staticTexts["reminders_next"]), "Next reminder: tomorrow at 7:30 AM.")
+        waitFor(scrollTo(app.buttons["reminders_lead"], "No lead time after a restart"), labelContaining: "1 day before the expiry date", "The lead time is not kept")
+        XCTAssertEqual(text(scrollTo(app.staticTexts["reminders_next"], "No next reminder after a restart")), "Next reminder: tomorrow at 7:30 AM.")
     }
 
     func test3SettingsSaysWhenIOSDoesNotShowTheReminders() throws {
