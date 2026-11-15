@@ -25,8 +25,17 @@ targets:
     platform: iOS
     sources:
       - path: CVKEFridge
+      # The two tables of the shared specification go into the app as they are. Do not copy them: spec/ is the
+      # reference (see AGENTS.md).
+      - path: spec/foods.json
+        buildPhase: resources
+      - path: spec/storage-hints.json
+        buildPhase: resources
     dependencies:
       - package: CVKEFridgeCore
+        product: CVKEFridgeCore
+      - package: CVKEFridgeCore
+        product: CVKEFridgeFeatures
     info:
       path: CVKEFridge/Info.plist
       properties:
@@ -48,6 +57,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: CVKE Fridge uses the camera only to read barcodes and to take a photo of a food. The picture stays on your iPhone.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge
