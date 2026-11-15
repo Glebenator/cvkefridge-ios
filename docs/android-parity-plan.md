@@ -124,6 +124,16 @@ The review of the Android app at `8ad4020` found these. "iOS" says what the iOS 
 | 19 | `inventory/QuantityText.kt` | "1.000" with a German locale is 1. | The quantity field uses the number format of the locale. |
 | 19 | `ui/FoodCard.kt` | A swipe ends the whole oldest batch at once. | The same, with Undo, as on Android. A full swipe gives a haptic. This is the agreed behaviour. |
 
+A second review (Codex, `gpt-6.1-sol`) confirmed 1, 6, 8, 13, and 19, and found these also:
+
+| # | Android (file) | Defect | iOS |
+|---|---|---|---|
+| 20 | `ui/FridgeViewModel.kt:349` | The cleanup of an earlier message can delete a removed photo that a newer "Undo" still needs. | Each removed photo is protected until its own message closes. The cleanup reads the protections when it runs. |
+| 21 | `ui/FridgeViewModel.kt:320` | All forms share one result slot for a save. A second form can replace the result of the first, and the first can save again. | Each form gets the result of its own save, by its token. One token saves one time. |
+| 22 | `reminder/Reminders.kt:51` | Settings that cannot be read become "off", and the app cancels the reminders. | Settings that cannot be read change nothing. The planned reminders stay. |
+| 23 | `inventory/QuantityText.kt:22` | A quantity that the app formats with a locale that has other digits or another decimal separator cannot be read again. | The same number format reads and writes the quantity, with exact thousandths. |
+| 24 | `inventory/AddAgain.kt:96` | A removed recent food stays in the list after the clock went back. | The removal records the identifier of the newest change of the food, not a time. |
+
 Not changed, because the shared specification must change first: more than one barcode for one product (9), and
 the language in the fields of the Open Food Facts request (17). The form starts in the storage area of the open tab
 of My Fridge (18), as the README of Android says.
