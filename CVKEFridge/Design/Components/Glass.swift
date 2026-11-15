@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // Liquid Glass is the material of the controls that float above the content: bars, floating buttons, and floating
 // messages. The system bars (the tab bar, the navigation bar, a toolbar, a sheet) get glass from the system. The
@@ -233,11 +234,14 @@ struct GlassSegmentedRow<ID: Hashable & Sendable>: View {
 /// ```
 ///
 /// Give the main action last. The buttons are side by side when they fit. With large text or a narrow screen, they
-/// are one above the other, with the main action at the top.
+/// are one above the other, with the main action at the top. With an accessibility text size and the keyboard open,
+/// only the main action shows, so that the field with the keyboard stays on the screen.
 struct BottomActionBar<Content: View>: View {
     private let content: Content
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// True while the keyboard is open.
+    @State private var keyboardShown = false
 
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
@@ -246,7 +250,13 @@ struct BottomActionBar<Content: View>: View {
     var body: some View {
         GlassEffectContainer(spacing: Space.s2) {
             if dynamicTypeSize.isAccessibilitySize {
-                column
+                if keyboardShown {
+                    // With an accessibility text size and the keyboard, two buttons cover most of the form. Only the
+                    // main action stays. "Done" above the keyboard closes it and shows the other buttons again.
+                    mainAction
+                } else {
+                    column
+                }
             } else {
                 ViewThatFits(in: .horizontal) {
                     row
@@ -257,6 +267,21 @@ struct BottomActionBar<Content: View>: View {
         .padding(.horizontal, Space.screenMargin)
         .padding(.vertical, Space.s2)
         .contentWidth()
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardShown = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardShown = false
+        }
+    }
+
+    /// Only the last button, as wide as the bar.
+    private var mainAction: some View {
+        Group(subviews: content) { subviews in
+            if let last = subviews.last {
+                last.buttonSizing(.flexible)
+            }
+        }
     }
 
     /// The buttons side by side. Each has the width of its label, and the last one takes the remaining width.
