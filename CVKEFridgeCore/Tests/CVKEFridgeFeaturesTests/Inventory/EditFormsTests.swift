@@ -46,15 +46,15 @@ struct EditFormsTests {
         return copy
     }
 
-    @Test func aProductKeepsItsOtherValuesAndItsFoodWhileTheNameFits() throws {
+    @Test func aProductKeepsItsOtherValuesAndItsFoodWhileTheNameIsTheNameOfTheFood() throws {
         let saved = try #require(
-            ProductForm(name: " Salted  butter ", category: .other, unit: .pack)
+            ProductForm(name: " BUTTER ", category: .other, unit: .pack)
                 .action(product: butter, products: products, foods: foods)
         ).product
         #expect(
             saved == Product(
                 id: "p-butter",
-                name: "Salted butter",
+                name: "BUTTER",
                 category: .other,
                 unit: .pack,
                 barcode: "4000000000001",
@@ -69,6 +69,63 @@ struct EditFormsTests {
             ProductForm(name: "butter", category: .dairy, unit: nil)
                 .action(product: milk, products: [milk], foods: foods)?.product.foodId == "f-butter"
         )
+    }
+
+    // Correction of EditForms.kt: the product kept its food while one word of the new name fits the food, so
+    // "Chicken soup" kept the estimate of raw chicken. The edit form now has the rule of the add form.
+    @Test func aNewNameFindsItsFoodAgain() {
+        let chicken = Food(
+            id: "f-chicken",
+            name: "Chicken",
+            subtitle: "whole",
+            category: .meat,
+            keywords: ["chicken", "whole", "broiler"],
+            days: [.fridge: 1, .freezer: 360],
+            aliases: ["whole chicken"]
+        )
+        let soup = Food(
+            id: "f-soup",
+            name: "Soup",
+            subtitle: nil,
+            category: .leftovers,
+            keywords: ["soup"],
+            days: [.fridge: 3],
+            aliases: ["chicken soup"]
+        )
+        let table = FoodTable(foods: [chicken, soup])
+        let product = Product(id: "p-chicken", name: "Chicken", category: .meat, unit: .g, barcode: nil, foodId: "f-chicken")
+        func foodId(_ name: String, of product: Product = product, foods: FoodTable = table) -> String? {
+            ProductForm(name: name, category: .meat, unit: .g)
+                .action(product: product, products: [product], foods: foods)?.product.foodId
+        }
+        // An alias of the food keeps the food.
+        #expect(foodId("Whole  chicken") == "f-chicken")
+        // A name that is the name or an alias of one other food gets that food.
+        #expect(foodId("Chicken soup") == "f-soup")
+        // One word of the name fits the food, but the name is not a name of the food: no food.
+        #expect(foodId("Chicken stew") == nil)
+        #expect(foodId("Salted chicken") == nil)
+        // The full name is a keyword of the food: the food stays.
+        #expect(foodId("Broiler") == "f-chicken")
+        // A keyword does not give a food to a product that has none.
+        let plain = Product(id: "p-chicken", name: "Chicken", category: .meat, unit: .g, barcode: nil, foodId: nil)
+        #expect(foodId("Broiler", of: plain) == nil)
+    }
+
+    // With no change of the name, the product keeps its food, also when the table of foods cannot be read. The
+    // Android app removes the food then, and the product loses its expiry estimate.
+    @Test func aProductWithTheSameNameKeepsItsFoodWithNoTableOfFoods() {
+        let empty = FoodTable(foods: [])
+        let odd = Product(id: "p-odd", name: "Salted butter", category: .dairy, unit: .g, barcode: nil, foodId: "f-butter")
+        func foodId(_ name: String, of product: Product, foods: FoodTable) -> String? {
+            ProductForm(name: name, category: .dairy, unit: .g, note: "New note")
+                .action(product: product, products: [product], foods: foods)?.product.foodId
+        }
+        #expect(foodId("Butter", of: butter, foods: empty) == "f-butter")
+        // The name of the product is not a name of its food: for example, the lookup of a scan gave the food.
+        #expect(foodId(" salted  BUTTER ", of: odd, foods: foods) == "f-butter")
+        // A new name with no table has no food.
+        #expect(foodId("Margarine", of: butter, foods: empty) == nil)
     }
 
     @Test func theNoteIsSavedWithoutSpacesAtTheEndsAndAnEmptyNoteIsRemoved() throws {

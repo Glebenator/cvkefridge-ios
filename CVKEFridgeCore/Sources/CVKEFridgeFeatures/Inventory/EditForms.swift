@@ -53,18 +53,24 @@ public struct ProductForm: Hashable, Sendable {
         return nil
     }
 
-    /// The action that saves the form, or nil when the name has a problem. The product keeps its food of the table
-    /// of foods while the new name fits that food. If not, a name that only one food has gets that food. The other
-    /// values of the product, for example its barcode and its storage text, stay.
+    /// The action that saves the form, or nil when the name has a problem. The other values of the product, for
+    /// example its barcode and its storage text, stay.
+    ///
+    /// The food of the table of foods follows the name, with the rule of the add form (`AddFoodForm.withName`):
+    /// - A name that did not change keeps the food of the product, also when the table of foods does not have it.
+    /// - A new name keeps the food while the full name is the name or an alias of the food (`AddFoodForm.isNamed`).
+    /// - If not, a name that only one food has as its name or alias gets that food.
+    /// - If not, the food stays only when the full name is one of its keywords, so "Cheddar" keeps the hard cheese.
+    /// - Each other name has no food.
+    ///
+    /// The Android app keeps the food while one word of the new name fits it (`FoodSuggestions.fits`), so a change of
+    /// "Chicken" to "Chicken soup" keeps the estimate of raw chicken. It also removes the food of a product with no
+    /// change of the name, when the table of foods cannot be read.
     public func action(product: Product, products: [Product], foods: FoodTable) -> InventoryAction.SaveProduct? {
         if nameError(product: product, products: products) != nil {
             return nil
         }
         let cleaned = Names.clean(name)
-        let kept = product.foodId.flatMap { foods.food(id: $0) }.flatMap { food in
-            Names.same(product.name, cleaned) || FoodSuggestions.fits(food, name: cleaned) ? food : nil
-        }
-        let foodId = kept?.id ?? FoodSuggestions.onlyFoodNamed(cleaned, foods: foods)?.id
         return InventoryAction.SaveProduct(
             product: Product(
                 id: product.id,
@@ -72,11 +78,29 @@ public struct ProductForm: Hashable, Sendable {
                 category: category,
                 unit: unit,
                 barcode: product.barcode,
-                foodId: foodId,
+                foodId: ProductForm.foodId(of: product, renamed: cleaned, foods: foods),
                 note: Notes.clean(note),
                 storageText: product.storageText
             )
         )
+    }
+
+    /// The food of the table of foods for the `product` with the new `name`. See `action(product:products:foods:)`.
+    private static func foodId(of product: Product, renamed name: String, foods: FoodTable) -> String? {
+        if Names.same(product.name, name) {
+            return product.foodId
+        }
+        let current = product.foodId.flatMap { foods.food(id: $0) }
+        if let current, AddFoodForm.isNamed(current, name) {
+            return current.id
+        }
+        if let only = FoodSuggestions.onlyFoodNamed(name, foods: foods) {
+            return only.id
+        }
+        if let current, current.keywords.contains(where: { Names.same($0, name) }) {
+            return current.id
+        }
+        return nil
     }
 }
 
