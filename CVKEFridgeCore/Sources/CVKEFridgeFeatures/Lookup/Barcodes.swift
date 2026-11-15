@@ -59,6 +59,23 @@ public enum Barcodes {
         return .valid(barcode: barcode)
     }
 
+    /// Each barcode that a typed text can be, in the form of the app, the barcode of `parseTyped` first. The list is
+    /// empty when the text is not a barcode.
+    ///
+    /// Eight digits can be a valid EAN-8 and also a valid UPC-E, and only the package tells which. The Android app
+    /// takes the EAN-8 and does not find the product of the UPC-E. The app looks for each barcode of the list in the
+    /// inventory and in the cache of the lookup, and asks the network only for the first.
+    public static func typedCandidates(_ text: String) -> [String] {
+        guard case .valid(let barcode) = parseTyped(text) else {
+            return []
+        }
+        let digits = String(String.UnicodeScalarView(text.unicodeScalars.filter(isDigit)))
+        guard digits.count == 8, let other = upcE(digits), other != barcode else {
+            return [barcode]
+        }
+        return [barcode, other]
+    }
+
     /// The barcode that the camera read, in the form of the app, or nil when its digits are not a valid barcode.
     public static func fromScan(format: Format, raw: String) -> String? {
         guard !raw.isEmpty, raw.unicodeScalars.allSatisfy(isDigit) else {
