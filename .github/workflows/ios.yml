@@ -1,6 +1,6 @@
 # Compares the copy of the shared specification in spec/ with the cvkefridge repository, tests the Swift package
-# with the vectors in spec/vectors/, builds the iOS app with Xcode, and runs the UI tests of the shell on a simulator.
-# The tests run in light and in dark appearance. Their screenshots are an artifact.
+# with the vectors in spec/vectors/, builds the iOS app with Xcode, and runs the unit tests of the app and all UI
+# tests on a simulator. The UI tests run in light and in dark appearance. Their screenshots are an artifact.
 name: iOS
 
 on:
@@ -32,7 +32,8 @@ jobs:
 
   app:
     runs-on: macos-26
-    timeout-minutes: 60
+    # The UI tests run two times, one time for each appearance.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Show Xcode and the simulators
@@ -70,22 +71,42 @@ jobs:
           grep -E "error:" build.log | sort -u | head -150 || true
           # A compiler crash has no error line. Its stack dump names the file and the function.
           grep -E "While (evaluating|emitting|type-checking)|Apple Swift version" build.log | head -20 || true
-      - name: Run the shell tests in light mode
+      - name: Run the unit tests of the app
+        id: unit
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project CVKEFridge.xcodeproj -scheme CVKEFridge \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build -parallel-testing-enabled NO \
+            -only-testing:CVKEFridgeTests -resultBundlePath unit.xcresult | tee unit.log | tail -40
+      # Each UI test class runs: the shell, Home and My Fridge, the screen of a food, the forms, the scanner, History,
+      # the settings, and the photos. The tests start the app with a data folder of their own and with no network.
+      - name: Run the UI tests in light mode
         id: light
+        if: always() && steps.build.outcome == 'success'
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
           xcodebuild test-without-building -project CVKEFridge.xcodeproj -scheme CVKEFridge \
-            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
-            -only-testing:CVKEFridgeUITests/ShellUITests -resultBundlePath light.xcresult | tail -40
-      - name: Run the shell tests in dark mode
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build -parallel-testing-enabled NO \
+            -only-testing:CVKEFridgeUITests -resultBundlePath light.xcresult | tee light.log | tail -40
+      - name: Run the UI tests in dark mode
+        id: dark
         if: always() && steps.build.outcome == 'success'
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
           xcodebuild test-without-building -project CVKEFridge.xcodeproj -scheme CVKEFridge \
-            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
-            -only-testing:CVKEFridgeUITests/ShellUITests -resultBundlePath dark.xcresult | tail -40
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build -parallel-testing-enabled NO \
+            -only-testing:CVKEFridgeUITests -resultBundlePath dark.xcresult | tee dark.log | tail -40
+      - name: Show the tests that failed
+        if: failure()
+        run: |
+          for run in unit light dark; do
+            if [ -f "$run.log" ]; then
+              echo "== $run"
+              grep -E "^Test Case .* (failed|skipped)|: error: " "$run.log" | sort -u | head -80 || true
+            fi
+          done
       - name: Export the screenshots
         if: always()
         run: |
@@ -110,5 +131,5 @@ jobs:
           name: ios-results
           path: |
             *.xcresult
-            build.log
+            *.log
           if-no-files-found: ignore
