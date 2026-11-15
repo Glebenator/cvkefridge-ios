@@ -107,6 +107,9 @@ private struct AddFoodFormView: View {
     /// The result of the last search for suggestions.
     @State private var found: [NameSuggestion] = []
     @State private var asksBeforeScan = false
+    /// True after the save that closes the form. The form is on the screen while its sheet closes, and a tap on
+    /// "Save" in that time does not save a second time.
+    @State private var closing = false
     @FocusState private var focus: AddFoodField?
 
     /// What the rows of the form show. The body calculates it one time for each update.
@@ -494,8 +497,9 @@ private struct AddFoodFormView: View {
     // MARK: - Save and close
 
     private func save(another: Bool, proxy: ScrollViewProxy) {
-        // The buttons are off while the form saves or makes the photo. This check is for a tap in the same moment.
-        guard model.formWrite(token) != .saving, model.formPhotos[token] != .making else {
+        // The buttons are off while the form saves or makes the photo. This check is for a tap in the same moment,
+        // and for a tap while the sheet closes after its save: the model has no result of this form then.
+        guard !closing, model.formWrite(token) != .saving, model.formPhotos[token] != .making else {
             return
         }
         let form = entry?.form ?? start()
@@ -545,6 +549,7 @@ private struct AddFoodFormView: View {
         // The saved food got the photo. A photo that it did not get, because it has one, goes.
         model.discardFormPhoto(token: token)
         if scan != nil {
+            closing = true
             navigator.finishAddFood(route, scanNext: another)
         } else if another {
             entry = AddFoodEntry((entry?.form ?? start()).next())
@@ -553,6 +558,7 @@ private struct AddFoodFormView: View {
             scroll(proxy, to: productId == nil ? .top : .name, anchor: .top)
             focus = .name
         } else {
+            closing = true
             navigator.finishAddFood(route)
         }
     }

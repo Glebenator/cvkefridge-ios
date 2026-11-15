@@ -97,6 +97,9 @@ private struct TakeQuantitySheet: View {
     /// True after the person selected the button one time. The field then shows its problem.
     @State private var checked = false
     @State private var problems = 0
+    /// True after the sheet recorded the quantity. The sheet is on the screen while it closes, and a second tap on
+    /// its button in that time does not record the quantity a second time.
+    @State private var recorded = false
 
     private var used: Bool { request.outcome == .used }
 
@@ -187,11 +190,15 @@ private struct TakeQuantitySheet: View {
     }
 
     private func confirm(_ check: TakeCheck) {
+        guard !recorded else {
+            return
+        }
         guard case .quantity(let thousandths) = check else {
             checked = true
             problems += 1
             return
         }
+        recorded = true
         model.perform(
             .take(.init(productId: request.productId, batchIds: request.batchIds, quantity: thousandths, outcome: request.outcome))
         )
