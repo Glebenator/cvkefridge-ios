@@ -171,6 +171,19 @@ final class FridgeModel {
     @ObservationIgnored private var photoProtections: [Int: PhotoProtection] = [:]
     /// The number of lines that the model said it did not read. The message comes one time for each number.
     @ObservationIgnored private var announcedSkippedChanges = 0
+    /// The photo import that runs for an add form, by the token of the form.
+    @ObservationIgnored private var formPhotoImports: [String: FormPhotoImport] = [:]
+    /// The number of the newest photo import of an add form.
+    @ObservationIgnored private var formPhotoGeneration = 0
+
+    /// A photo import of an add form that did not end.
+    private struct FormPhotoImport {
+        /// The number of the import. Only the import with the number in `formPhotoImports` can change the form.
+        let generation: Int
+        let task: Task<Void, Never>
+        /// The photo that the form had before the import, or nil.
+        let earlier: FormPhoto?
+    }
 
     init(_ dependencies: Dependencies) {
         changeLog = dependencies.changeLog
@@ -604,22 +617,48 @@ final class FridgeModel {
     /// Makes the photo of the add form with the `token` from the picture, off the main actor. The product does not
     /// exist yet: give `formPhoto(_:)` to `perform`, and the product gets the photo after the save. A picture that
     /// cannot be read gives a message, and the form keeps the photo that it had.
+    ///
+    /// Each call starts a new import for the token. An import that a newer call or `discardFormPhoto(token:)`
+    /// replaced does not change the form when it ends: it deletes its prepared file, and it shows no message.
     func makeFormPhoto(token: String, picture: PictureSource) {
-        let earlier = formPhotos[token]
-        formPhotos[token] = .making
-        Task {
-            do {
-                let prepared = try await photoService.prepare(picture: picture)
-                let url = await photoService.url(of: prepared)
-                if case .ready(let old, _) = earlier {
-                    await photoService.discard(old)
-                }
-                formPhotos[token] = .ready(prepared, url: url)
-            } catch {
-                formPhotos[token] = earlier == .making ? nil : earlier
-                post(.message(.photoFailed))
-            }
+        // The photo that the form shows when this import fails. A newer import keeps the photo of the import before
+        // it, because the photo of the form while an import runs is `making`.
+        let earlier: FormPhoto?
+        if let running = formPhotoImports.removeValue(forKey: token) {
+            running.task.cancel()
+            earlier = running.earlier
+        } else {
+            earlier = formPhotos[token]
         }
+        formPhotoGeneration += 1
+        let generation = formPhotoGeneration
+        formPhotos[token] = .making
+        let task = Task {
+            let prepared: PreparedPhoto
+            do {
+                prepared = try await photoService.prepare(picture: picture)
+            } catch {
+                guard formPhotoImports[token]?.generation == generation else {
+                    return
+                }
+                formPhotoImports[token] = nil
+                formPhotos[token] = earlier
+                post(.message(.photoFailed))
+                return
+            }
+            let url = await photoService.url(of: prepared)
+            guard formPhotoImports[token]?.generation == generation else {
+                // The form discarded this import, or a newer import replaced it. No form shows this file.
+                await photoService.discard(prepared)
+                return
+            }
+            formPhotoImports[token] = nil
+            if case .ready(let old, _) = earlier {
+                await photoService.discard(old)
+            }
+            formPhotos[token] = .ready(prepared, url: url)
+        }
+        formPhotoImports[token] = FormPhotoImport(generation: generation, task: task, earlier: earlier)
     }
 
     /// The photo of the add form with the `token` that is ready, or nil.
@@ -631,12 +670,27 @@ final class FridgeModel {
     }
 
     /// Deletes the photo of the add form with the `token`: the person removed it, or the form closed with no save.
+    ///
+    /// An import that runs for the form stops. When it ends, it deletes its prepared file.
     func discardFormPhoto(token: String) {
-        guard case .ready(let photo, _) = formPhotos.removeValue(forKey: token) else {
+        var discarded: [PreparedPhoto] = []
+        if let running = formPhotoImports.removeValue(forKey: token) {
+            running.task.cancel()
+            // The photo before the import is not on the form now, and no later import gets it.
+            if case .ready(let photo, _) = running.earlier {
+                discarded.append(photo)
+            }
+        }
+        if case .ready(let photo, _) = formPhotos.removeValue(forKey: token) {
+            discarded.append(photo)
+        }
+        guard !discarded.isEmpty else {
             return
         }
         Task {
-            await photoService.discard(photo)
+            for photo in discarded {
+                await photoService.discard(photo)
+            }
         }
     }
 
