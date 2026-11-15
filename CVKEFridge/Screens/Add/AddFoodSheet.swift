@@ -98,6 +98,8 @@ private struct AddFoodFormView: View {
     @Environment(FridgeModel.self) private var model
     @Environment(Navigator.self) private var navigator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The showing of this form. A save that ends after the form closed does not close a newer sheet.
+    @Environment(\.sheetPresentation) private var presentation
 
     @State private var entry: AddFoodEntry?
     /// The token of this form for its writes and its photo.
@@ -168,10 +170,7 @@ private struct AddFoodFormView: View {
             }
             .motion(Motion.list, value: values.names)
             // The scanner takes the place of the form, so a changed form asks first, as its close button does.
-            .confirmationDialog("Discard your changes?", isPresented: $asksBeforeScan, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive, action: openScanner)
-                Button("Keep editing", role: .cancel) {}
-            }
+            .discardQuestion(isPresented: $asksBeforeScan, onDiscard: openScanner)
             .task(id: query(values)) { await search(values) }
             .onChange(of: values.write) { _, write in
                 switch write {
@@ -550,7 +549,7 @@ private struct AddFoodFormView: View {
         model.discardFormPhoto(token: token)
         if scan != nil {
             closing = true
-            navigator.finishAddFood(route, scanNext: another)
+            navigator.finishAddFood(route, presentation: presentation, scanNext: another)
         } else if another {
             entry = AddFoodEntry((entry?.form ?? start()).next())
             found = []
@@ -559,7 +558,7 @@ private struct AddFoodFormView: View {
             focus = .name
         } else {
             closing = true
-            navigator.finishAddFood(route)
+            navigator.finishAddFood(route, presentation: presentation)
         }
     }
 

@@ -86,6 +86,18 @@ enum SheetRoute: Hashable, Identifiable, Sendable {
     }
 }
 
+/// One showing of a sheet: the route, and a number that is different for each showing. Two showings of the same
+/// route are two presentations. So a late call for a sheet that closed cannot close a newer sheet with the same route.
+struct SheetPresentation: Hashable, Identifiable, Sendable {
+    let id: Int
+    let route: SheetRoute
+}
+
+extension EnvironmentValues {
+    /// The presentation of the sheet that shows the view, or nil outside a sheet of the navigator.
+    @Entry var sheetPresentation: SheetPresentation.ID?
+}
+
 /// Where the person is in the app: the selected tab, the screens in the stack of each tab, the sheets, and the filter
 /// of My Fridge. It is one observable object, and each screen calls it to go to another screen:
 ///
@@ -111,7 +123,15 @@ final class Navigator {
     var paths: [AppTab: [Route]] = [:]
 
     /// The sheets, the newest last. A sheet shows above the sheet before it.
-    private(set) var sheets: [SheetRoute] = []
+    private(set) var presentations: [SheetPresentation] = []
+
+    /// The routes of the sheets, the newest last.
+    var sheets: [SheetRoute] {
+        presentations.map(\.route)
+    }
+
+    /// The number of the newest presentation.
+    @ObservationIgnored private var presentationCount = 0
 
     /// The filters and the search text of My Fridge. They are here, because Home and a reminder open My Fridge with a
     /// filter. The sort order is not a filter: My Fridge keeps it.
@@ -123,6 +143,11 @@ final class Navigator {
 
     init(tab: AppTab = .home) {
         self.tab = tab
+    }
+
+    private func presentation(of route: SheetRoute) -> SheetPresentation {
+        presentationCount += 1
+        return SheetPresentation(id: presentationCount, route: route)
     }
 
     // MARK: Tabs
@@ -144,7 +169,7 @@ final class Navigator {
     /// Shows My Fridge with the filter: all sheets close, and My Fridge shows its first screen. "View all" of Home
     /// gives an empty filter, and a count of Home gives its freshness.
     func showMyFridge(_ filter: FoodFilter = FoodFilter()) {
-        sheets = []
+        presentations = []
         paths[.myFridge] = []
         tab = .myFridge
         restartMyFridge(with: filter)
@@ -170,7 +195,7 @@ final class Navigator {
     /// Opens a screen in the stack of the selected tab. The sheets close first. Two fast taps do not open the same
     /// screen two times.
     func open(_ route: Route) {
-        sheets = []
+        presentations = []
         if paths[tab]?.last != route {
             paths[tab, default: []].append(route)
         }
@@ -193,8 +218,8 @@ final class Navigator {
     /// Shows a sheet above the screen, or above the sheet that is open. Two fast taps do not open the same sheet two
     /// times.
     func present(_ sheet: SheetRoute) {
-        if sheets.last != sheet {
-            sheets.append(sheet)
+        if presentations.last?.route != sheet {
+            presentations.append(presentation(of: sheet))
         }
     }
 
@@ -210,51 +235,82 @@ final class Navigator {
 
     /// Puts a sheet in the place of the newest sheet: the scanner takes the place of the empty add form. With no
     /// sheet open, it shows the sheet.
+    ///
+    /// The replacement is a new presentation. `SheetLayer` shows it after the system closed the sheet before it.
     func replaceSheet(with sheet: SheetRoute) {
-        if sheets.isEmpty {
-            sheets = [sheet]
+        if presentations.isEmpty {
+            presentations = [presentation(of: sheet)]
         } else {
-            sheets[sheets.count - 1] = sheet
+            presentations[presentations.count - 1] = presentation(of: sheet)
         }
     }
 
     /// Closes the newest sheet.
     func dismiss() {
-        if !sheets.isEmpty {
-            sheets.removeLast()
+        if !presentations.isEmpty {
+            presentations.removeLast()
         }
     }
 
     /// Closes the sheet and each sheet above it. A sheet that is not open changes nothing.
     func dismiss(_ sheet: SheetRoute) {
-        if let index = sheets.lastIndex(of: sheet) {
-            sheets.removeSubrange(index...)
+        if let index = presentations.lastIndex(where: { $0.route == sheet }) {
+            presentations.removeSubrange(index...)
         }
     }
 
     /// Closes all sheets.
     func dismissAll() {
-        sheets = []
+        presentations = []
     }
 
     /// Closes the add form after its save. "Save" also closes the scanner below the form. "Save and scan next"
     /// (`scanNext`) closes only the form, and the scanner shows again.
-    func finishAddFood(_ sheet: SheetRoute, scanNext: Bool = false) {
-        dismiss(sheet)
-        if !scanNext, case .scan = sheets.last {
-            sheets.removeLast()
+    ///
+    /// The form must still be open. A save that ends after its form closed changes nothing: it does not close a
+    /// scanner that the person opened after that. Only the scanner directly below the form closes.
+    ///
+    /// - Parameter presentation: The presentation of the form (`\.sheetPresentation`). With it, only that showing of
+    ///   the form counts, and not a newer form with the same route. Without it, the newest sheet with the route
+    ///   counts.
+    func finishAddFood(_ sheet: SheetRoute, presentation: SheetPresentation.ID? = nil, scanNext: Bool = false) {
+        let index = if let presentation {
+            presentations.lastIndex { $0.id == presentation && $0.route == sheet }
+        } else {
+            presentations.lastIndex { $0.route == sheet }
         }
+        guard let index else {
+            return
+        }
+        var end = index
+        if !scanNext, index > 0, case .scan = presentations[index - 1].route {
+            end = index - 1
+        }
+        presentations.removeSubrange(end...)
     }
 
-    /// The sheet at a level, or nil. `SheetLayer` binds it.
+    /// The sheet at a level, or nil.
     func sheet(at level: Int) -> SheetRoute? {
-        sheets.indices.contains(level) ? sheets[level] : nil
+        presentation(at: level)?.route
+    }
+
+    /// The presentation at a level, or nil. `SheetLayer` binds it.
+    func presentation(at level: Int) -> SheetPresentation? {
+        presentations.indices.contains(level) ? presentations[level] : nil
     }
 
     /// Closes the sheet at the level and each sheet above it, when the system closed the sheet.
     func closeSheets(from level: Int) {
-        if sheets.count > level {
-            sheets.removeSubrange(level...)
+        if presentations.count > level {
+            presentations.removeSubrange(level...)
+        }
+    }
+
+    /// Closes the presentation and each sheet above it, when the system closed it. A presentation that is not open
+    /// changes nothing: the navigator already shows other sheets.
+    func closeSheets(from presentation: SheetPresentation) {
+        if let index = presentations.firstIndex(of: presentation) {
+            presentations.removeSubrange(index...)
         }
     }
 }

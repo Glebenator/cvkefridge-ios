@@ -10,9 +10,10 @@ extension NoticeText {
         case .message(let message):
             return Wording.text(message)
         case .changesNotRead(let count):
-            return count == 1
-                ? String(localized: "\(count) change in the inventory file can't be read. The other food is here.")
-                : String(localized: "\(count) changes in the inventory file can't be read. The other food is here.")
+            return String(
+                localized: "\(count) changes in the inventory file can't be read. The other food is here.",
+                comment: "A message after the start. The catalog has the plural forms."
+            )
         case .custom(let text, _):
             return text
         }
@@ -66,9 +67,10 @@ extension Wording {
         case .foodDeleted(let name), .storageAreaDeleted(let name):
             return String(localized: "\(name) deleted", comment: "The value is the name of a food or of a storage area.")
         case .batchDeleted(let name, let count):
-            return count == 1
-                ? String(localized: "\(count) batch of \(name) deleted")
-                : String(localized: "\(count) batches of \(name) deleted")
+            return String(
+                localized: "\(count) batches of \(name) deleted",
+                comment: "A message with Undo. The values are the number of batches and the name of the food. The catalog has the plural forms."
+            )
         case .expiryMoved(let name, let date):
             return String(localized: "\(name) now expires on \(Wording.date(date))")
         case .saveFailed:

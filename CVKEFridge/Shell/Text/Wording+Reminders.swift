@@ -6,10 +6,10 @@ import Foundation
 extension Wording {
     /// The title of a reminder: "1 item needs attention", "3 items need attention".
     static func reminderTitle(_ message: ReminderMessage) -> String {
-        let count = message.count
-        return count == 1
-            ? String(localized: "\(count) item needs attention")
-            : String(localized: "\(count) items need attention")
+        String(
+            localized: "\(message.count) items need attention",
+            comment: "The title of a reminder notification. The catalog has the plural forms."
+        )
     }
 
     /// The short text of a reminder: "Chicken thighs, Baby spinach and 2 more".
@@ -46,7 +46,7 @@ extension Wording {
         case .expiresTomorrow:
             String(localized: "Expires tomorrow")
         case .expiresInDays(let days):
-            days == 1 ? String(localized: "Expires in \(days) day") : String(localized: "Expires in \(days) days")
+            String(localized: "Expires in \(days) days", comment: "A line of a reminder notification. The catalog has the plural forms.")
         }
     }
 
@@ -55,10 +55,11 @@ extension Wording {
         switch days {
         case ...0:
             String(localized: "On the expiry date")
-        case 1:
-            String(localized: "\(days) day before the expiry date")
         default:
-            String(localized: "\(days) days before the expiry date")
+            String(
+                localized: "\(days) days before the expiry date",
+                comment: "A lead time of the reminders. The catalog has the plural forms."
+            )
         }
     }
 

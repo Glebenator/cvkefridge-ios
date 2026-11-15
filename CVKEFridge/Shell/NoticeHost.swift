@@ -14,7 +14,8 @@ import UIKit
 //
 // - The message comes up from below, and a new message replaces the one on the screen.
 // - It stays 4 seconds, or 8 seconds with a button. With VoiceOver or Switch Control it stays longer.
-// - The time stops while a finger is on the message, and while VoiceOver is on it. It starts again after that.
+// - The time stops while a finger is on the message, and while VoiceOver is on its text or its button. It starts again
+//   after that. The time also stops while a presentation without a host covers the message (see `CoverProbe`).
 // - A swipe to the side or down removes it. VoiceOver has the escape gesture.
 // - It gives the haptic signal of its kind, and VoiceOver reads it.
 // - A shake of the phone undoes a message with "Undo", with the Undo question of the system.
@@ -132,7 +133,9 @@ private struct NoticeView: View {
     /// True while a finger is on the message. It goes back to false also when the system stops the gesture.
     @GestureState private var pressed = false
     @State private var undoTarget = UndoTarget()
-    @AccessibilityFocusState private var focused: Bool
+    /// True while VoiceOver or Switch Control is on the text or on the button of the message.
+    @State private var focused = false
+    @State private var cover = CoverProbe()
 
     /// The time on the screen of a message with no button, in seconds.
     private static let plainSeconds: Double = 4
@@ -140,6 +143,8 @@ private struct NoticeView: View {
     private static let actionSeconds: Double = 8
     /// A person who uses VoiceOver or Switch Control needs more time to get to the button.
     private static let assistiveFactor: Double = 4
+    /// The step of the time of a message. After each step, the message examines if a presentation covers it.
+    private static let tick = Duration.milliseconds(250)
 
     private var held: Bool {
         pressed || focused
@@ -151,17 +156,26 @@ private struct NoticeView: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0).updating($pressed) { _, state, _ in state = true }
             )
-            .accessibilityFocused($focused)
             .accessibilityIdentifier("notice")
+            .background { CoverProbeView(probe: cover) }
             .task(id: held) {
                 // The time starts again when the finger goes up, so "Undo" does not go away below the finger.
                 guard !held else {
                     return
                 }
-                try? await Task.sleep(for: .seconds(seconds))
-                if !Task.isCancelled {
-                    model.noticeShown(notice.id)
+                // Only the time in which the person can see the message counts: a sheet or a dialog without a host
+                // of its own can cover it.
+                var left = seconds
+                while left > 0 {
+                    try? await Task.sleep(for: Self.tick)
+                    if Task.isCancelled {
+                        return
+                    }
+                    if !cover.isCovered {
+                        left -= Self.tick / .seconds(1)
+                    }
                 }
+                model.noticeShown(notice.id)
             }
             .onAppear(perform: arrive)
             .onDisappear {
@@ -174,8 +188,10 @@ private struct NoticeView: View {
             NoticeCard(verbatim: notice.text.text, kind: notice.text.kind, actionTitle: action.title) {
                 perform()
             }
+            .onAccessibilityFocusChange { focused = $0 }
         } else {
             NoticeCard(verbatim: notice.text.text, kind: notice.text.kind)
+                .onAccessibilityFocusChange { focused = $0 }
         }
     }
 
@@ -192,17 +208,8 @@ private struct NoticeView: View {
 
     /// The message came to this host. The first host of a message gives the haptic signal and the announcement.
     private func arrive() {
-        if notice.action == .undo, let undoManager {
-            let notice = notice
-            let model = model
-            undoManager.registerUndo(withTarget: undoTarget) { _ in
-                guard model.canPerformAction(of: notice) else {
-                    return
-                }
-                model.noticeAction(notice)
-                model.noticeShown(notice.id)
-            }
-            undoManager.setActionName(notice.text.text)
+        if let undoManager {
+            NoticeUndo.register(notice, model: model, undoManager: undoManager, target: undoTarget)
         }
         guard stage.firstShow(of: notice.id) else {
             return
@@ -226,4 +233,68 @@ private struct NoticeView: View {
 }
 
 /// The object that the Undo of the system keeps for one message.
-private final class UndoTarget {}
+final class UndoTarget {}
+
+/// The Undo of the system for a message with "Undo": a shake of the phone, or the undo key of a keyboard.
+///
+/// The message registers its action with the undo manager of the window when it comes, and removes it when it goes
+/// (`removeAllActions(withTarget:)`). So the system offers only the message on the screen. The undo manager is the
+/// same for the text fields, so the newest action is undone first: text that the person typed after the message
+/// came, or the message after the text. A message that a newer message replaced does nothing.
+@MainActor
+enum NoticeUndo {
+    static func register(_ notice: Notice, model: FridgeModel, undoManager: UndoManager, target: UndoTarget) {
+        guard notice.action == .undo else {
+            return
+        }
+        undoManager.registerUndo(withTarget: target) { _ in
+            MainActor.assumeIsolated {
+                guard model.canPerformAction(of: notice) else {
+                    return
+                }
+                model.noticeAction(notice)
+                model.noticeShown(notice.id)
+            }
+        }
+        undoManager.setActionName(notice.text.text)
+    }
+}
+
+/// Tells if a presentation covers a message. The rule of the shell: each sheet of the navigator, each `FormSheet`,
+/// and each sheet that has `noticeHost()` shows the message above its content. A presentation without a host (a date
+/// picker, the quantity sheet, a dialog, the camera, the photo picker) can cover the message. While it covers the
+/// message, the time of the message stops.
+@MainActor
+private final class CoverProbe {
+    /// A view in the message, or nil before the message is in a window.
+    weak var view: UIView?
+
+    /// True when the newest presentation of the window that does not close is not the presentation of the message.
+    var isCovered: Bool {
+        guard let view, let root = view.window?.rootViewController else {
+            return false
+        }
+        var top = root
+        while let next = top.presentedViewController, !next.isBeingDismissed {
+            top = next
+        }
+        return !view.isDescendant(of: top.view)
+    }
+}
+
+/// An empty view that gives the view of the message to a `CoverProbe`.
+private struct CoverProbeView: UIViewRepresentable {
+    let probe: CoverProbe
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isUserInteractionEnabled = false
+        view.isAccessibilityElement = false
+        probe.view = view
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        probe.view = view
+    }
+}
