@@ -167,10 +167,7 @@ private struct AddFoodFormView: View {
             }
             .motion(Motion.list, value: values.names)
             // The scanner takes the place of the form, so a changed form asks first, as its close button does.
-            .confirmationDialog("Discard your changes?", isPresented: $asksBeforeScan, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive, action: openScanner)
-                Button("Keep editing", role: .cancel) {}
-            }
+            .discardQuestion(isPresented: $asksBeforeScan, onDiscard: openScanner)
             .task(id: query(values)) { await search(values) }
             .onChange(of: values.write) { _, write in
                 switch write {

@@ -19,8 +19,8 @@ import UIKit
 /// - The content is the content of a `Form`: sections with rows. The parts of `FormFields.swift` and
 ///   `ExpiryDateField.swift` are rows.
 /// - Give the main action last. The buttons are Liquid Glass, and they stay above the keyboard.
-/// - The close button closes the sheet with `onClose`. When `hasChanges` is true, it asks first, and the person
-///   cannot close the sheet with a swipe down. So a changed form does not drop its changes with no question.
+/// - The close button closes the sheet with `onClose`. When `hasChanges` is true, it asks first, and a swipe down
+///   asks the same question. So a changed form does not drop its changes with no question.
 /// - The messages of the app show above the buttons.
 /// - The keyboard has a "Done" button, because the decimal keyboard has no return key.
 /// - On a wide screen the fields are not wider than `Metrics.contentMaxWidth`.
@@ -72,10 +72,7 @@ struct FormSheet<Content: View, Actions: View>: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(role: .close, action: close)
                         .accessibilityIdentifier("form_close")
-                        .confirmationDialog("Discard your changes?", isPresented: $asksToDiscard, titleVisibility: .visible) {
-                            Button("Discard changes", role: .destructive, action: onClose)
-                            Button("Keep editing", role: .cancel) {}
-                        }
+                        .discardQuestion(isPresented: $asksToDiscard, onDiscard: onClose)
                 }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
@@ -85,6 +82,11 @@ struct FormSheet<Content: View, Actions: View>: View {
         }
         .accessibilityIdentifier(identifier)
         .interactiveDismissDisabled(hasChanges)
+        // A swipe down on a changed form asks the same question as the close button. A form with no change closes.
+        .background {
+            DismissAttemptReader(onAttempt: close)
+                .accessibilityHidden(true)
+        }
     }
 
     private func close() {
@@ -93,6 +95,109 @@ struct FormSheet<Content: View, Actions: View>: View {
         } else {
             onClose()
         }
+    }
+}
+
+extension View {
+    /// The question before a changed form drops its changes: "Discard changes" and "Keep editing". Put it on the
+    /// control that asks, so that on an iPad the question points to it.
+    ///
+    /// On an iPhone, the system does not show a button with the role `cancel` in such a question. So "Keep editing"
+    /// has no role: it shows on each device, and VoiceOver reads it. A tap out of the question and the escape gesture
+    /// of VoiceOver also close the question with no change.
+    func discardQuestion(isPresented: Binding<Bool>, onDiscard: @escaping () -> Void) -> some View {
+        confirmationDialog("Discard your changes?", isPresented: isPresented, titleVisibility: .visible) {
+            Button("Discard changes", role: .destructive, action: onDiscard)
+            Button("Keep editing") {}
+        }
+    }
+}
+
+/// Tells when the person tries to close the sheet of the view with a swipe down, while the sheet does not let the
+/// swipe close it (`interactiveDismissDisabled`). SwiftUI has no such event, so the reader puts a delegate before the
+/// delegate of SwiftUI on the presentation of the sheet. That delegate gives each call to the delegate of SwiftUI.
+private struct DismissAttemptReader: UIViewControllerRepresentable {
+    let onAttempt: () -> Void
+
+    func makeUIViewController(context: Context) -> ReaderController {
+        ReaderController(onAttempt: onAttempt)
+    }
+
+    func updateUIViewController(_ controller: ReaderController, context: Context) {
+        controller.onAttempt = onAttempt
+        controller.install()
+    }
+
+    final class ReaderController: UIViewController {
+        var onAttempt: () -> Void
+        private let relay = DismissAttemptRelay()
+
+        init(onAttempt: @escaping () -> Void) {
+            self.onAttempt = onAttempt
+            super.init(nibName: nil, bundle: nil)
+            relay.onAttempt = { [weak self] in self?.onAttempt() }
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) is not available")
+        }
+
+        override func loadView() {
+            view = UIView()
+            view.isUserInteractionEnabled = false
+            view.isAccessibilityElement = false
+        }
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            install()
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            install()
+        }
+
+        /// Puts the relay on the presentation of the sheet. SwiftUI can set its delegate again, so each update does
+        /// this again.
+        func install() {
+            var root: UIViewController = self
+            while let parent = root.parent {
+                root = parent
+            }
+            guard let presentation = root.presentationController else {
+                return
+            }
+            if presentation.delegate !== relay {
+                relay.next = presentation.delegate
+                presentation.delegate = relay
+            }
+        }
+    }
+}
+
+/// The delegate of a presentation that tells the attempts to close it, and gives all calls to the delegate before it.
+private final class DismissAttemptRelay: NSObject, UIAdaptivePresentationControllerDelegate {
+    var onAttempt: (() -> Void)?
+    /// The delegate of SwiftUI. UIKit calls `responds(to:)` and `forwardingTarget(for:)`, which are not isolated, only
+    /// on the main thread.
+    nonisolated(unsafe) weak var next: (any UIAdaptivePresentationControllerDelegate)?
+
+    func presentationControllerDidAttemptToDismiss(_ presentationController: UIPresentationController) {
+        next?.presentationControllerDidAttemptToDismiss?(presentationController)
+        onAttempt?()
+    }
+
+    override func responds(to selector: Selector!) -> Bool {
+        super.responds(to: selector) || (next?.responds(to: selector) ?? false)
+    }
+
+    override func forwardingTarget(for selector: Selector!) -> Any? {
+        if let next, next.responds(to: selector) {
+            return next
+        }
+        return super.forwardingTarget(for: selector)
     }
 }
 
