@@ -6,9 +6,19 @@ let package = Package(
     name: "CVKEFridgeCore",
     defaultLocalization: "en",
     platforms: [.iOS(.v26), .macOS(.v15)],
-    products: [.library(name: "CVKEFridgeCore", targets: ["CVKEFridgeCore"])],
+    products: [
+        .library(name: "CVKEFridgeCore", targets: ["CVKEFridgeCore"]),
+        .library(name: "CVKEFridgeFeatures", targets: ["CVKEFridgeFeatures"]),
+    ],
     targets: [
         .target(name: "CVKEFridgeCore"),
         .testTarget(name: "CVKEFridgeCoreTests", dependencies: ["CVKEFridgeCore"]),
+        // The rules of the app that are above the core: the port of the plain Kotlin of the Android app module.
+        .target(name: "CVKEFridgeFeatures", dependencies: ["CVKEFridgeCore"]),
+        .testTarget(
+            name: "CVKEFridgeFeaturesTests",
+            dependencies: ["CVKEFridgeFeatures"],
+            resources: [.copy("Resources")]
+        ),
     ]
 )
