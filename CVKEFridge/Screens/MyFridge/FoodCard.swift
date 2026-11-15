@@ -125,7 +125,8 @@ struct FoodCard: View {
         switch row.freshness {
         case .expiring, .expired:
             let icon = Text(Image(icon: row.freshness.icon, filled: true)).foregroundStyle(row.freshness.color)
-            return Text("\(Text(line))\(icon) \(Text(days))", comment: "The quantity of a food, the icon of its status, and its days left.")
+            // The space that does not break keeps the icon on the line of the first word of the days left.
+            return Text("\(Text(line))\(icon)\u{00A0}\(Text(days))", comment: "The quantity of a food, the icon of its status, and its days left.")
         case .fresh, .noExpiryDate:
             line.append(days)
             return Text(line)

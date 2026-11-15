@@ -212,11 +212,14 @@ private struct StorageAreaFormSheet: View {
     /// The form as it was when the sheet opened, or nil before the first change.
     @State private var start: StorageAreaForm?
     @State private var problems = 0
+    /// True after the save, while the sheet closes.
+    @State private var saved = false
 
     var body: some View {
         let areas = model.content?.inventory.storageAreas ?? []
         let write = model.formWrite(token)
-        let nameError = form.checked ? form.nameError(areas: areas)?.areaMessage : nil
+        // After the save, the new storage area has the name of the form. That is not a problem of the name.
+        let nameError = form.checked && !saved ? form.nameError(areas: areas)?.areaMessage : nil
         FormSheet(
             form.id == nil ? "Add a storage area" : "Edit storage area",
             identifier: "area_dialog",
@@ -263,6 +266,7 @@ private struct StorageAreaFormSheet: View {
         }
         .onChange(of: write) { _, write in
             if write == .saved {
+                saved = true
                 model.formWriteRead(token)
                 onClose()
             }

@@ -60,8 +60,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         tab("Home").tap()
 
         // The number of expiring batches opens My Fridge with the food that is expiring, in all storage areas.
-        app.swipeDown()
-        scrollTo(app.buttons["metric_expiring"], "Home does not show the expiring food").tap()
+        scrollBackTo(app.buttons["metric_expiring"], "Home does not show the expiring food").tap()
         expect(app.navigationBars["My Fridge"], "My Fridge did not open")
         XCTAssertTrue(areaTab("All").isSelected, "The count of Home did not show all storage areas")
         XCTAssertTrue(isOn(app.switches["filter_expiring"]), "The count of Home did not turn on its filter")
@@ -153,8 +152,13 @@ final class InventoryScreensUITests: FridgeUITestCase {
         // On the tab of all storage areas, a card names its storage area.
         XCTAssertTrue(value(of: milk).contains("Fridge"), value(of: milk))
 
+        // The search field goes away when the list scrolls up. It comes back at the top of the list.
         let search = app.searchFields.firstMatch
-        app.swipeDown()
+        var swipes = 0
+        while !search.exists && swipes < 8 {
+            app.swipeDown(velocity: .slow)
+            swipes += 1
+        }
         expect(search, "My Fridge has no search field").tap()
         search.typeText("ket")
         expect(app.buttons["food_sample-ketchup/sample-pantry"], "The search did not find the ketchup")
@@ -234,6 +238,9 @@ final class InventoryScreensUITests: FridgeUITestCase {
     func test07ASwipeRecordsTheOldestBatchAndUndoBringsItBack() throws {
         launch(inventory: .sample)
         tab("My Fridge").tap()
+        // In the order of the names, a card stays in its place when its batch to use first changes.
+        expect(app.buttons["sort_key"], "My Fridge has no sort order").tap()
+        expect(app.buttons["sort_option_name"], "The menu of the sort orders did not open").tap()
         let milk = scrollTo(app.buttons["food_sample-milk/fridge"], "My Fridge does not show the milk")
         XCTAssertTrue(value(of: milk).contains("3 l"), value(of: milk))
 
@@ -252,7 +259,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         wait(for: milk, toHaveValueWith: "3 l")
 
         // A swipe from the trailing side records the oldest batch as thrown away.
-        let spinach = scrollTo(app.buttons["food_sample-spinach/fridge"], "My Fridge does not show the spinach")
+        let spinach = scrollBackTo(app.buttons["food_sample-spinach/fridge"], "My Fridge does not show the spinach")
         spinach.swipeLeft()
         let thrownAway = app.buttons["swipe_thrown_away"]
         if thrownAway.waitForExistence(timeout: 2) {
@@ -296,7 +303,12 @@ final class InventoryScreensUITests: FridgeUITestCase {
         wait(for: cheddar, toHaveValueWith: "250 g")
 
         // With one item left, the menu records it with no question.
-        scrollTo(app.buttons["food_menu_sample-juice/fridge"], "My Fridge does not show the juice").tap()
+        let juice = app.buttons["food_menu_sample-juice/fridge"]
+        if !(juice.exists && juice.isHittable) {
+            // With large text, the juice can be above the part of the list that shows.
+            app.swipeDown(velocity: .slow)
+        }
+        scrollTo(juice, "My Fridge does not show the juice").tap()
         expect(app.buttons["menu_used"], "The menu of the card did not open").tap()
         expect(app.staticTexts["1 bottle of Orange juice used"], "One item left was not recorded at once")
         XCTAssertFalse(app.textFields["field_quantity"].exists, "The sheet opened for one item")
@@ -353,7 +365,9 @@ final class InventoryScreensUITests: FridgeUITestCase {
         expect(app.staticTexts["Another storage area has this name."], "The form accepted the name of another storage area")
         capture("storage-area-form")
         replaceText(of: name, with: "Cellar")
-        app.buttons["field_storage_kind"].tap()
+        // With large text, the button of the form is above the keyboard and covers the storage kind.
+        hideKeyboard()
+        scrollTo(app.buttons["field_storage_kind"], "The form has no storage kind").tap()
         expect(app.buttons["storage_kind_option_fridge"], "The menu of the storage kinds did not open").tap()
         app.buttons["area_save"].tap()
         let cellar = expect(app.buttons["Cellar, Fridge • 0 items"], "The new storage area is not in the list")
@@ -388,8 +402,15 @@ final class InventoryScreensUITests: FridgeUITestCase {
         // The new storage area has a tab on My Fridge.
         app.navigationBars["Storage areas"].buttons.firstMatch.tap()
         expect(app.buttons["my_fridge_menu"], "The back button did not go to My Fridge")
-        areaTab("Wine fridge").tap()
-        wait(for: areaTab("Wine fridge"), toBeSelected: true)
+        // With large text, the new tab is out of the screen, and the row scrolls sideways.
+        let wineFridge = areaTab("Wine fridge")
+        var swipes = 0
+        while wineFridge.frame.maxX > app.frame.maxX && swipes < 6 {
+            app.scrollViews["area_tabs"].swipeLeft()
+            swipes += 1
+        }
+        wineFridge.tap()
+        wait(for: wineFridge, toBeSelected: true)
         expect(app.staticTexts["No items yet"], "The new storage area is not empty")
         capture("my-fridge-new-area")
     }
@@ -453,6 +474,27 @@ extension FridgeUITestCase {
     func wait(for element: XCUIElement, toHaveValueWith part: String, timeout: TimeInterval = 10) {
         let predicate = NSPredicate(format: "value CONTAINS %@", part)
         wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: timeout)
+    }
+
+    /// Scrolls the screen down until the element is on it, and fails the test with the message when it does not
+    /// come. It is for an element above the part that shows: `scrollTo` scrolls the other way.
+    @discardableResult
+    func scrollBackTo(_ element: XCUIElement, _ message: String) -> XCUIElement {
+        var swipes = 0
+        while !(element.exists && element.isHittable) && swipes < 14 {
+            app.swipeDown(velocity: .slow)
+            swipes += 1
+        }
+        XCTAssertTrue(element.exists && element.isHittable, message)
+        return element
+    }
+
+    /// Closes the keyboard with the "Done" button above it.
+    func hideKeyboard() {
+        let done = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done")).firstMatch
+        if done.exists && done.isHittable {
+            done.tap()
+        }
     }
 
     /// Waits until an element is not on the screen, and fails the test with the message when it stays.

@@ -85,8 +85,8 @@ extension TakeSource {
     }
 }
 
-/// The sheet with the question "How much was used?" or "How much was thrown away?": what the person has, the
-/// quantity field with the unit, and the button that records the quantity.
+/// The sheet with the question "How much was used?" or "How much was thrown away?": the quantity field with the
+/// unit, what the person has, and the button that records the quantity.
 private struct TakeQuantitySheet: View {
     let request: TakeRequest
     let onClose: () -> Void
@@ -144,18 +144,18 @@ private struct TakeQuantitySheet: View {
                 )
                 .listRowBackground(Palette.surfaceContainer)
             } header: {
-                VStack(alignment: .leading, spacing: Space.s2) {
-                    (used ? Text("How much was used?") : Text("How much was thrown away?"))
-                        .font(Typography.sectionTitle)
-                        .foregroundStyle(Palette.onSurface)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("\(source.name): you have \(available). The quantity comes from the oldest batch first.")
-                        .font(Typography.secondary)
-                        .foregroundStyle(Palette.onSurfaceVariant)
-                        .accessibilityIdentifier("take_available")
-                }
-                .textCase(nil)
-                .padding(.bottom, Space.s2)
+                (used ? Text("How much was used?") : Text("How much was thrown away?"))
+                    .font(Typography.sectionTitle)
+                    .foregroundStyle(Palette.onSurface)
+                    .textCase(nil)
+                    .padding(.bottom, Space.s2)
+                    .accessibilityAddTraits(.isHeader)
+            } footer: {
+                // The field is above these words, so that it is on the screen also with the largest text.
+                Text("\(source.name): you have \(available). The quantity comes from the oldest batch first.")
+                    .font(Typography.secondary)
+                    .foregroundStyle(Palette.onSurfaceVariant)
+                    .accessibilityIdentifier("take_available")
             }
         }
         .scrollContentBackground(.hidden)
