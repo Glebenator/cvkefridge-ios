@@ -7,9 +7,10 @@ import Foundation
 // The English words are the words of `res/values/strings.xml` and `ui/DisplayFormat.kt` of the Android app. A text
 // that names Android names iOS here.
 //
-// Each text is a key of the string catalog (`String(localized:)`). A text with a count has two keys, one for the count
-// 1 and one for each other count, as the `plurals` of Android. The key for the other counts has the count as a
-// number, so that the string catalog can give it the plural forms of a language that has more than two.
+// Each text is a key of the string catalog (`String(localized:)`). A text with a count has one key, with the forms of
+// the count ("one", "other") as plural variations in the string catalog, as the `plurals` of Android. A language with
+// more forms adds them in the catalog. A quantity with a unit word ("2 packs") has two keys, because its number is a
+// formatted text: the key for the count 1 and the key for each other count.
 //
 // | File | Words |
 // | --- | --- |
@@ -54,29 +55,40 @@ enum Wording {
         case .l:
             return String(localized: "\(number) l", comment: "A quantity with its unit. The value is a number.")
         case .pack:
-            return count == 1 ? String(localized: "\(number) pack") : String(localized: "\(number) packs")
+            return count == 1
+                ? String(localized: "\(number) pack", comment: "A quantity of 1 pack. The value is the formatted number.")
+                : String(localized: "\(number) packs", comment: "A quantity in packs, also with a fraction. The value is the formatted number.")
         case .bottle:
-            return count == 1 ? String(localized: "\(number) bottle") : String(localized: "\(number) bottles")
+            return count == 1
+                ? String(localized: "\(number) bottle", comment: "A quantity of 1 bottle. The value is the formatted number.")
+                : String(localized: "\(number) bottles", comment: "A quantity in bottles, also with a fraction. The value is the formatted number.")
         case .slice:
-            return count == 1 ? String(localized: "\(number) slice") : String(localized: "\(number) slices")
+            return count == 1
+                ? String(localized: "\(number) slice", comment: "A quantity of 1 slice. The value is the formatted number.")
+                : String(localized: "\(number) slices", comment: "A quantity in slices, also with a fraction. The value is the formatted number.")
         case .cup:
-            return count == 1 ? String(localized: "\(number) cup") : String(localized: "\(number) cups")
+            return count == 1
+                ? String(localized: "\(number) cup", comment: "A quantity of 1 cup. The value is the formatted number.")
+                : String(localized: "\(number) cups", comment: "A quantity in cups, also with a fraction. The value is the formatted number.")
         }
     }
 
     /// A number of foods: "1 item", "12 items".
     static func itemCount(_ count: Int) -> String {
-        count == 1 ? String(localized: "\(count) item") : String(localized: "\(count) items")
+        String(localized: "\(count) items", comment: "A number of foods. The catalog has the plural forms.")
     }
 
     /// A number of batches: "1 batch", "2 batches".
     static func batchCount(_ count: Int) -> String {
-        count == 1 ? String(localized: "\(count) batch") : String(localized: "\(count) batches")
+        String(localized: "\(count) batches", comment: "A number of batches of one food. The catalog has the plural forms.")
     }
 
     /// The number of different expiry dates of the batches of a food: "2 expiry dates".
     static func expiryDateCount(_ count: Int) -> String {
-        count == 1 ? String(localized: "\(count) expiry date") : String(localized: "\(count) expiry dates")
+        String(
+            localized: "\(count) expiry dates",
+            comment: "The number of different expiry dates of the batches of one food. The catalog has the plural forms."
+        )
     }
 
     // MARK: The days left
@@ -202,13 +214,13 @@ enum Wording {
         let count = time.count
         switch time.unit {
         case .days:
-            return count == 1 ? String(localized: "About \(count) day.") : String(localized: "About \(count) days.")
+            return String(localized: "About \(count) days.", comment: "How long a food keeps. The catalog has the plural forms.")
         case .weeks:
-            return count == 1 ? String(localized: "About \(count) week.") : String(localized: "About \(count) weeks.")
+            return String(localized: "About \(count) weeks.", comment: "How long a food keeps. The catalog has the plural forms.")
         case .months:
-            return count == 1 ? String(localized: "About \(count) month.") : String(localized: "About \(count) months.")
+            return String(localized: "About \(count) months.", comment: "How long a food keeps. The catalog has the plural forms.")
         case .years:
-            return count == 1 ? String(localized: "About \(count) year.") : String(localized: "About \(count) years.")
+            return String(localized: "About \(count) years.", comment: "How long a food keeps. The catalog has the plural forms.")
         }
     }
 
@@ -219,9 +231,10 @@ enum Wording {
             return nil
         }
         let name = foodName(food)
-        return days == 1
-            ? String(localized: "Estimate for \(name) (\(kind.label)): \(days) day.")
-            : String(localized: "Estimate for \(name) (\(kind.label)): \(days) days.")
+        return String(
+            localized: "Estimate for \(name) (\(kind.label)): \(days) days.",
+            comment: "Where an estimate comes from. The values are a food, a storage kind, and a number of days. The catalog has the plural forms."
+        )
     }
 
     /// A food of the table of foods with the text that tells it from other foods: "Cheese, processed slices".
