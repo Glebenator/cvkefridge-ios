@@ -242,6 +242,55 @@ struct ReminderPlanTests {
         #expect(dates(reminders) == ["2026-11-12", "2026-11-13", "2026-11-14"])
     }
 
+    // MARK: The last reminder
+
+    /// The instant of a time of today (2026-11-12) in UTC.
+    private func at(_ minuteOfDay: Int) -> Date {
+        ReminderSchedule.triggerAt(today, time: ReminderTime(minuteOfDay: minuteOfDay)!, timeZone: TimeZone(identifier: "UTC")!)
+    }
+
+    private func last(_ settings: ReminderSettings, shown: [String], now minute: Int) -> String? {
+        ReminderPlan.lastDate(
+            settings,
+            shown: Set(shown.map(I.date)),
+            now: at(minute),
+            timeZone: TimeZone(identifier: "UTC")!
+        )?.text
+    }
+
+    @Test func aTimeThatPassedIsNotEvidenceThatTheReminderCame() {
+        // At 08:00 the person changes the time from 09:00 to 07:00, and then to 11:00. No reminder came today, so the
+        // reminder at 11:00 of today is planned.
+        var settings = settings(at: 7 * 60)
+        settings.nextDate = "2026-11-12"
+        #expect(last(settings, shown: [], now: 8 * 60) == nil)
+        settings.minuteOfDay = 11 * 60
+        #expect(dates(plan(milk(expires: "2026-11-13"), settings, now: 8 * 60)).first == "2026-11-12")
+    }
+
+    @Test func aShownReminderOfTodayStopsASecondReminderAtALaterTime() {
+        // The reminder of 09:00 is in the Notification Center. At 10:00 the person selects 11:00.
+        let settings = settings(at: 11 * 60, lastDate: last(settings(), shown: ["2026-11-12"], now: 10 * 60))
+        #expect(settings.lastDate == "2026-11-12")
+        #expect(dates(plan(milk(expires: "2026-11-13"), settings, now: 10 * 60)).first == "2026-11-13")
+    }
+
+    @Test func theLatestShownDateIsTheLastDate() {
+        // The app did not open for three days. The reminders of each day are in the Notification Center.
+        #expect(last(settings(lastDate: "2026-11-08"), shown: ["2026-11-09", "2026-11-12", "2026-11-10"], now: 10 * 60) == "2026-11-12")
+        // A later recorded date stays.
+        #expect(last(settings(lastDate: "2026-11-12"), shown: ["2026-11-10"], now: 10 * 60) == "2026-11-12")
+        // With no evidence, the recorded date stays.
+        #expect(last(settings(lastDate: "2026-11-10"), shown: [], now: 10 * 60) == "2026-11-10")
+    }
+
+    @Test func aShownDateAfterTodayHasNoEffect() {
+        // The clock went back. A reminder of tomorrow must not stop the reminder of tomorrow when tomorrow comes.
+        #expect(last(settings(), shown: ["2026-11-13"], now: 10 * 60) == nil)
+        // A recorded last date after today is replaced by the evidence of today.
+        #expect(last(settings(lastDate: "2026-11-14"), shown: ["2026-11-12"], now: 10 * 60) == "2026-11-12")
+    }
+
     // MARK: The notification of a planned reminder
 
     private func reminder(on date: String, at minuteOfDay: Int) -> PlannedReminder {
@@ -268,17 +317,37 @@ struct ReminderPlanTests {
         #expect(PlannedReminder.date(ofIdentifier: "2026-11-14") == nil)
     }
 
-    @Test func theTriggerHasTheFullDateAndTimeInTheTimeZone() {
+    /// The instant of the components in a calendar and a time zone: the instant at which iOS gives the notification
+    /// when the device has this calendar and this time zone.
+    private func fire(_ components: DateComponents, in zone: TimeZone, _ identifier: Calendar.Identifier = .gregorian)
+        -> Date?
+    {
+        var calendar = Calendar(identifier: identifier)
+        calendar.timeZone = zone
+        return calendar.date(from: components)
+    }
+
+    @Test func theTriggerHasTheFullDateAndTimeOnTheClockWithNoTimeZone() {
         let components = reminder(on: "2026-11-14", at: 9 * 60 + 5).triggerComponents(timeZone: berlin)
+        #expect(components.era == 1)
         #expect(components.year == 2026)
         #expect(components.month == 11)
         #expect(components.day == 14)
         #expect(components.hour == 9)
         #expect(components.minute == 5)
         #expect(components.second == 0)
-        #expect(components.timeZone == berlin)
-        #expect(components.calendar?.identifier == .gregorian)
-        #expect(components.date == instant("2026-11-14T08:05:00Z"))
+        #expect(components.timeZone == nil)
+        #expect(components.calendar == nil)
+        #expect(fire(components, in: berlin) == instant("2026-11-14T08:05:00Z"))
+    }
+
+    @Test func aReminderComesAtItsTimeOnTheClockAfterTheDeviceChangedItsTimeZone() {
+        // Planned in Los Angeles at 09:00. The person then travels to New York and does not open the app.
+        let losAngeles = TimeZone(identifier: "America/Los_Angeles")!
+        let newYork = TimeZone(identifier: "America/New_York")!
+        let components = reminder(on: "2026-11-14", at: 9 * 60).triggerComponents(timeZone: losAngeles)
+        #expect(fire(components, in: losAngeles) == instant("2026-11-14T17:00:00Z"))
+        #expect(fire(components, in: newYork) == instant("2026-11-14T14:00:00Z"))
     }
 
     @Test func theTriggerOfATimeThatTheClockSkipsIsATimeThatExists() {
@@ -287,7 +356,7 @@ struct ReminderPlanTests {
         #expect(components.day == 29)
         #expect(components.hour == 3)
         #expect(components.minute == 30)
-        #expect(components.date == instant("2026-03-29T01:30:00Z"))
+        #expect(fire(components, in: berlin) == instant("2026-03-29T01:30:00Z"))
     }
 
     @Test func theTriggerInTheHourThatTheClockRepeatsIsTheFirstTime() {
@@ -296,17 +365,21 @@ struct ReminderPlanTests {
         let components = reminder(on: "2026-10-25", at: 2 * 60 + 30).triggerComponents(timeZone: berlin)
         #expect(components.hour == 2)
         #expect(components.minute == 30)
-        #expect(components.date == instant("2026-10-25T00:30:00Z"))
+        #expect(fire(components, in: berlin) == instant("2026-10-25T00:30:00Z"))
     }
 
-    @Test func theTriggerStaysGregorianForEachCalendarOfThePerson() {
-        // The year 2026 of the Gregorian calendar is the year 8 of the Japanese calendar. The components stay
-        // Gregorian, so the trigger is on the correct day.
-        let components = reminder(on: "2026-11-14", at: 9 * 60).triggerComponents(timeZone: berlin)
-        var japanese = Calendar(identifier: .japanese)
-        japanese.timeZone = berlin
-        #expect(components.year == 2026)
-        #expect(components.calendar?.date(from: components) == instant("2026-11-14T08:00:00Z"))
-        #expect(japanese.component(.year, from: instant("2026-11-14T08:00:00Z")) == 8)
+    @Test func theTriggerIsInTheCalendarOfThePerson() {
+        // iOS reads the components in the calendar of the device. The year 2026 of the Gregorian calendar is the
+        // year 8 of the era Reiwa of the Japanese calendar, so the components have that year.
+        let reminder = reminder(on: "2026-11-14", at: 9 * 60)
+        let japanese = reminder.triggerComponents(timeZone: berlin, calendar: Calendar(identifier: .japanese))
+        #expect(japanese.year == 8)
+        #expect(japanese.month == 11)
+        #expect(japanese.day == 14)
+        #expect(japanese.calendar == nil)
+        #expect(fire(japanese, in: berlin, .japanese) == instant("2026-11-14T08:00:00Z"))
+        let hebrew = reminder.triggerComponents(timeZone: berlin, calendar: Calendar(identifier: .hebrew))
+        #expect(hebrew.year == 5787)
+        #expect(fire(hebrew, in: berlin, .hebrew) == instant("2026-11-14T08:00:00Z"))
     }
 }

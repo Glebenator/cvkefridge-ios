@@ -149,6 +149,32 @@ public enum ReminderPlan {
         return reminders
     }
 
+    /// The date of the last reminder that iOS showed (`ReminderSettings.lastDate`), from the evidence that the system
+    /// gives: the dates of the reminders in the Notification Center, and of the reminders that came or that the
+    /// person selected while the app ran.
+    ///
+    /// A time of the settings that passed is not evidence: the person can change the time after the reminder was
+    /// planned, and iOS can refuse a request. So only a shown reminder makes a date the last date. The latest shown
+    /// date that is not after today wins. A recorded last date that is later stays, and a shown date after today (a
+    /// clock that went back) has no effect.
+    ///
+    /// - Returns: The new last date, or the recorded last date when the evidence has no later date.
+    public static func lastDate(
+        _ settings: ReminderSettings,
+        shown: Set<CalendarDate>,
+        now: Date,
+        timeZone: TimeZone
+    ) -> CalendarDate? {
+        let today = ReminderSchedule.dateOf(now, timeZone: timeZone)
+        guard let latest = shown.filter({ $0 <= today }).max() else {
+            return settings.last
+        }
+        if let known = ReminderSchedule.knownLastDate(settings.last, now: now, timeZone: timeZone), known >= latest {
+            return known
+        }
+        return latest
+    }
+
     /// The dates on which a batch can be in a reminder, in order: for each expiry date, the dates from the lead time
     /// before it to the day after it (rule 1 of `ReminderRules`). Each date with a reminder is in the list, so the plan
     /// does not look at each day up to a far expiry date.
@@ -176,9 +202,14 @@ public enum ReminderPlan {
 /// Rules:
 /// 1. Each date has one identifier: `reminder-2026-11-14`. A new plan replaces the notification of the same date, and
 ///    the app can find the date of a notification that iOS shows.
-/// 2. The trigger is the instant of `triggerAt(timeZone:)`, as a full date and time in the time zone of the device.
-///    On a day when the clock skips the time of the reminder, the trigger is later by the gap. The date components
-///    then always name a time that exists on the clock.
+/// 2. The trigger is the time on the clock of the instant of `triggerAt(timeZone:)` in the time zone of the device:
+///    the era, the year, the month, the day, the hour, the minute, and the second, in the calendar of the person. On
+///    a day when the clock skips the time of the reminder, the trigger is later by the gap, so the components always
+///    name a time that exists on the clock.
+/// 3. The trigger has no time zone and no calendar. iOS reads it on the clock and in the calendar of the device at
+///    each moment. So when the person travels to a different time zone and does not open the app, the reminder still
+///    comes at its time on the clock of the new time zone. (A calendar in the components keeps its time zone, also
+///    with `autoupdatingCurrent`, and the reminder would come at the time of the old time zone.)
 extension PlannedReminder {
     /// The start of the identifier of each planned reminder. The rest is the date.
     public static let identifierPrefix = "reminder-"
@@ -196,18 +227,23 @@ extension PlannedReminder {
         return CalendarDate.parse(String(identifier.dropFirst(identifierPrefix.count)))
     }
 
-    /// The date and the time of the trigger of the notification (rule 2): the Gregorian year, month, day, hour,
-    /// minute, and second of the instant in the time zone, with the calendar and the time zone. The components give
-    /// the same instant on each device, also when the person uses a calendar that is not Gregorian.
-    public func triggerComponents(timeZone: TimeZone) -> DateComponents {
-        var calendar = Calendar(identifier: .gregorian)
+    /// The date and the time of the trigger of the notification (rules 2 and 3), with no time zone and no calendar.
+    ///
+    /// - Parameters:
+    ///   - timeZone: The time zone of the device now.
+    ///   - calendar: The calendar of the person (`Calendar.current`). iOS reads the components in this calendar, so a
+    ///     year of the Japanese calendar stays a year of the Japanese calendar.
+    public func triggerComponents(timeZone: TimeZone, calendar: Calendar = Calendar(identifier: .gregorian))
+        -> DateComponents
+    {
+        var calendar = calendar
         calendar.timeZone = timeZone
         var components = calendar.dateComponents(
-            [.year, .month, .day, .hour, .minute, .second],
+            [.era, .year, .month, .day, .hour, .minute, .second],
             from: triggerAt(timeZone: timeZone)
         )
-        components.calendar = calendar
-        components.timeZone = timeZone
+        components.calendar = nil
+        components.timeZone = nil
         return components
     }
 }
