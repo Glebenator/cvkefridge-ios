@@ -65,6 +65,21 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
+  # The unit tests of the app code that needs the system: they run in the app, on a simulator. The tests of the
+  # product rules are in the CVKEFridgeCore package.
+  CVKEFridgeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CVKEFridgeTests
+    dependencies:
+      - target: CVKEFridge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CVKEFridge.app/CVKEFridge
+        BUNDLE_LOADER: $(TEST_HOST)
   CVKEFridgeUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -82,12 +97,14 @@ schemes:
     build:
       targets:
         CVKEFridge: all
+        CVKEFridgeTests: [test]
         CVKEFridgeUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
+        - name: CVKEFridgeTests
         - name: CVKEFridgeUITests
     archive:
       config: Release
