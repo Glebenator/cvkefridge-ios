@@ -1,9 +1,9 @@
-#if canImport(ImageIO)
 import CoreGraphics
 import CVKEFridgeFeatures
 import Foundation
 import ImageIO
 import Testing
+@testable import CVKEFridge
 
 /// The photo of a picture: the size, the orientation, no metadata, no transparency, and the pictures that the app
 /// cannot read. The pictures are made in the test with ImageIO.
@@ -208,7 +208,7 @@ struct PhotoEncoderTests {
     }
 
     @Test func aPictureFileGivesTheSamePhotoAsItsBytes() throws {
-        let folder = try ScratchFolder()
+        let folder = try PhotoScratchFolder()
         defer { folder.remove() }
         let picture = Self.file(Self.twoColours(width: 2048, height: 1024), type: "public.png")
         let file = folder.file("picture.png")
@@ -219,7 +219,7 @@ struct PhotoEncoderTests {
     }
 
     @Test func theWriteMakesTheCompleteFile() throws {
-        let folder = try ScratchFolder()
+        let folder = try PhotoScratchFolder()
         defer { folder.remove() }
         let jpeg = try PhotoEncoder.jpeg(from: Self.file(Self.twoColours(width: 64, height: 64), type: "public.png"))
         let target = folder.file("milk.t1.jpg")
@@ -229,7 +229,7 @@ struct PhotoEncoderTests {
     }
 
     @Test func aThumbnailFillsItsBox() throws {
-        let folder = try ScratchFolder()
+        let folder = try PhotoScratchFolder()
         defer { folder.remove() }
         let file = folder.file("milk.t1.jpg")
         try PhotoEncoder.write(
@@ -247,4 +247,25 @@ struct PhotoEncoderTests {
         #expect(PhotoEncoder.thumbnail(at: folder.file("none.jpg"), filling: 128) == nil)
     }
 }
-#endif
+
+/// A new temporary folder for one test.
+private struct PhotoScratchFolder {
+    let url: URL
+
+    init() throws {
+        url = FileManager.default.temporaryDirectory.appending(path: "photo-tests-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    func file(_ name: String) -> URL {
+        url.appending(path: name, directoryHint: .notDirectory)
+    }
+
+    func names() -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []).sorted()
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
