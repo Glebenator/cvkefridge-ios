@@ -14,8 +14,8 @@ public struct ProductPhoto: Hashable, Sendable {
     }
 }
 
-/// A photo that the person removed. Its file stays, with the end `PhotoFiles.removed`, until the message with "Undo"
-/// closes. Then `PhotoStore.clean(productIds:)` deletes it.
+/// A photo that the person removed or replaced. Its file stays, with the end `PhotoFiles.removed`, until the message
+/// with "Undo" closes and the app calls `PhotoStore.release(_:)`. Then `PhotoStore.clean(productIds:)` deletes it.
 public struct RemovedPhoto: Hashable, Sendable {
     public let productId: String
     /// The name of the removed file in the folder of the photos.
@@ -24,6 +24,19 @@ public struct RemovedPhoto: Hashable, Sendable {
     public init(productId: String, fileName: String) {
         self.productId = productId
         self.fileName = fileName
+    }
+}
+
+/// A change of the photo of a product with `PhotoStore.replace`: the new photo, and the earlier photo as a removed
+/// photo, or nil when the product had no photo. `PhotoStore.undo(_:)` brings the earlier photo back.
+/// `PhotoStore.release(_:)` ends its protection when the message with "Undo" closes.
+public struct PhotoChange: Hashable, Sendable {
+    public let photo: ProductPhoto
+    public let earlier: RemovedPhoto?
+
+    public init(photo: ProductPhoto, earlier: RemovedPhoto?) {
+        self.photo = photo
+        self.earlier = earlier
     }
 }
 
