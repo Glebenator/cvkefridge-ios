@@ -104,9 +104,11 @@ class FridgeUITestCase: XCTestCase {
         add(attachment)
     }
 
-    /// A button of the tab bar, by its name: "Home", "My Fridge", "History", "Settings", or "Add food".
+    /// A button of the tab bar, by its name: "Home", "My Fridge", "History", "Settings", or "Add food". On an iPad
+    /// the tab bar is at the top of the window, and it is not a tab bar for XCTest.
     func tab(_ name: String) -> XCUIElement {
-        app.tabBars.buttons[name].firstMatch
+        let inTabBar = app.tabBars.buttons[name].firstMatch
+        return inTabBar.exists ? inTabBar : app.buttons[name].firstMatch
     }
 
     /// Scrolls the screen up until the element is on it, and fails the test with the message when it does not come.
