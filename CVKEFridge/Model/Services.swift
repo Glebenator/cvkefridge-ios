@@ -70,6 +70,18 @@ protocol ReminderService: Sendable {
     /// One value for each tap of the person on a reminder, also for the tap that started the app. The model then
     /// shows My Fridge with the food that is expiring or expired. Call it one time.
     func taps() -> AsyncStream<Void>
+
+    /// The dates of the planned reminders that iOS showed, from the evidence of the system: a reminder of the date in
+    /// the Notification Center, or a reminder that came or that the person selected while the app ran. Call it
+    /// before `update`, which removes the old reminders from the Notification Center.
+    func shownDates() async -> Set<CalendarDate>
+}
+
+extension ReminderService {
+    /// No evidence: a service that does not show notifications.
+    func shownDates() async -> Set<CalendarDate> {
+        []
+    }
 }
 
 // MARK: - The photos
