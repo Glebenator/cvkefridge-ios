@@ -7,9 +7,10 @@ import Foundation
 /// Reads and writes a change in the JSON shape of the changes in `spec/vectors/change-log.json`:
 /// `{"id", "at", "origin", "body": {"type", ...}}`.
 ///
-/// Each key of the shape must be present, except `note` of a product: changes from before the note have no `note`
-/// key, and a missing `note` is `null`. Only `unit`, `barcode`, `foodId`, `note`, `expiryDate`, and `expirySource` can
-/// be `null`. `expiryDate` and `expirySource` are both `null` or both have a value. Other keys have no effect.
+/// Each key of the shape must be present, except `note` and `storageText` of a product: changes from before these
+/// values do not have the keys, and a missing key is `null`. Only `unit`, `barcode`, `foodId`, `note`, `storageText`,
+/// `expiryDate`, and `expirySource` can be `null`. `expiryDate` and `expirySource` are both `null` or both have a
+/// value. Other keys have no effect.
 /// The codec does not check the form of identifiers.
 public enum ChangeCodec: Sendable {
     /// The change in a JSON text. It throws when the text is not a change: for example an unknown type, a date that
@@ -66,6 +67,7 @@ private enum ChangeKey: String, CodingKey {
     case barcode
     case foodId
     case note
+    case storageText
 }
 
 /// A change with its JSON form.
@@ -157,6 +159,7 @@ private struct ChangeWire: Codable {
             try encodeOrNull(&item, product.barcode, .barcode)
             try encodeOrNull(&item, product.foodId, .foodId)
             try encodeOrNull(&item, product.note, .note)
+            try encodeOrNull(&item, product.storageText, .storageText)
         case .productDeleted(let productId):
             try body.encode("productDeleted", forKey: .type)
             try body.encode(productId, forKey: .productId)
@@ -205,7 +208,8 @@ private struct ChangeWire: Codable {
     }
 }
 
-/// A product: `{"id", "name", "category", "unit", "barcode", "foodId", "note"}`. The key `note` can be missing.
+/// A product: `{"id", "name", "category", "unit", "barcode", "foodId", "note", "storageText"}`. The keys `note` and
+/// `storageText` can be missing.
 private func decodeProduct(_ container: KeyedDecodingContainer<ChangeKey>) throws -> Product {
     let id = try container.decode(String.self, forKey: .id)
     let name = try container.decode(String.self, forKey: .name)
@@ -221,7 +225,17 @@ private func decodeProduct(_ container: KeyedDecodingContainer<ChangeKey>) throw
     let barcode = try decodeNullableString(container, .barcode)
     let foodId = try decodeNullableString(container, .foodId)
     let note = try container.contains(.note) ? decodeNullableString(container, .note) : nil
-    return Product(id: id, name: name, category: category, unit: unit, barcode: barcode, foodId: foodId, note: note)
+    let storageText = try container.contains(.storageText) ? decodeNullableString(container, .storageText) : nil
+    return Product(
+        id: id,
+        name: name,
+        category: category,
+        unit: unit,
+        barcode: barcode,
+        foodId: foodId,
+        note: note,
+        storageText: storageText
+    )
 }
 
 /// A batch: `{"id", "productId", "quantity", "storageAreaId", "dateAdded", "expiryDate", "expirySource"}`.

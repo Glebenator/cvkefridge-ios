@@ -17,12 +17,17 @@ struct ChangeCodecTests {
                 let again = try ChangeCodec.decode(encoded)
                 #expect(again == decoded, "\(name): \(text)")
                 // The encoded text has the JSON shape of the vector file, with each null. A product with no "note"
-                // key has no note, and the codec writes the key with null (rule 7.2).
+                // key has no note, and a product with no "storageText" key has no storage text. The codec writes
+                // the two keys with null (rule 7.2).
                 var expected = change
                 if var body = expected["body"] as? [String: Any],
-                   var product = body["product"] as? [String: Any],
-                   product["note"] == nil {
-                    product["note"] = NSNull()
+                   var product = body["product"] as? [String: Any] {
+                    if product["note"] == nil {
+                        product["note"] = NSNull()
+                    }
+                    if product["storageText"] == nil {
+                        product["storageText"] = NSNull()
+                    }
                     body["product"] = product
                     expected["body"] = body
                 }
@@ -56,6 +61,7 @@ struct ChangeCodecTests {
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"batchUsed","batchId":"b-1","quantity":"500","date":"2026-11-10"}}"#,
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"productDeleted","productId":5}}"#,
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"productSaved","product":{"id":"p-1","name":"Jam","category":"condiment","unit":null,"barcode":null,"foodId":null,"note":5}}}"#,
+            #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"productSaved","product":{"id":"p-1","name":"Jam","category":"condiment","unit":null,"barcode":null,"foodId":null,"note":null,"storageText":5}}}"#,
             // Missing keys.
             #"{"id":"c-1","at":1,"origin":"phone-a","body":{"type":"batchDeleted"}}"#,
             #"{"id":"c-1","at":1,"body":{"type":"batchDeleted","batchId":"b-1"}}"#,

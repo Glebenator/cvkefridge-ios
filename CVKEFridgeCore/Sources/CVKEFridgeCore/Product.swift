@@ -40,6 +40,9 @@ public struct Product: Hashable, Sendable {
     public let foodId: String?
     /// The text that the person wrote about the product. The core keeps it as it is.
     public let note: String?
+    /// The text on the package about how to keep the product. It comes from the product lookup. The core keeps it as
+    /// it is.
+    public let storageText: String?
 
     public init(
         id: String,
@@ -48,7 +51,8 @@ public struct Product: Hashable, Sendable {
         unit: MeasureUnit?,
         barcode: String?,
         foodId: String?,
-        note: String? = nil
+        note: String? = nil,
+        storageText: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -57,5 +61,6 @@ public struct Product: Hashable, Sendable {
         self.barcode = barcode
         self.foodId = foodId
         self.note = note
+        self.storageText = storageText
     }
 }

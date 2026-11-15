@@ -13,9 +13,11 @@ struct FoodTableVectorsTests {
 
         var withDays: [String: Any] = [:]
         var withUsualKind: [String: Any] = [:]
+        var withTips: [String: Any] = [:]
         for kind in StorageKind.allCases {
             withDays[kind.rawValue] = table.foods.filter { $0.days[kind] != nil }.count
             withUsualKind[kind.rawValue] = table.foods.filter { $0.usualKind == kind }.count
+            withTips[kind.rawValue] = table.foods.filter { $0.tips[kind] != nil }.count
         }
 
         var samples: [[String: Any]] = []
@@ -29,6 +31,10 @@ struct FoodTableVectorsTests {
             for (kind, count) in food.days {
                 days[kind.rawValue] = count
             }
+            var tips: [String: Any] = [:]
+            for (kind, tip) in food.tips {
+                tips[kind.rawValue] = tip
+            }
             samples.append([
                 "foodId": food.id,
                 "name": food.name,
@@ -37,6 +43,7 @@ struct FoodTableVectorsTests {
                 "usualKind": Vectors.orNull(food.usualKind?.rawValue),
                 "common": food.common,
                 "aliases": food.aliases,
+                "tips": tips,
             ])
         }
 
@@ -46,6 +53,7 @@ struct FoodTableVectorsTests {
             "withUsualKind": withUsualKind,
             "common": table.foods.filter { $0.common }.count,
             "aliases": table.foods.reduce(0) { $0 + $1.aliases.count },
+            "withTips": withTips,
             "samples": samples,
         ]
         try Vectors.check(actual, expected, "food-table.json")
@@ -56,11 +64,17 @@ struct FoodTableVectorsTests {
         #expect(throws: (any Error).self) { try FoodTable.decode(text) }
     }
 
+    @Test func aTipsKeyThatIsNotAStorageKindIsAnError() {
+        let text = #"{"foods":[{"id":"a","name":"A","category":"dairy","days":{},"tips":{"shelf":"Dry."}}]}"#
+        #expect(throws: (any Error).self) { try FoodTable.decode(text) }
+    }
+
     @Test func theUsualKindCanBeAbsent() throws {
         let text = #"{"foods":[{"id":"a","name":"A","category":"dairy","days":{"fridge":3}}]}"#
         let food = try FoodTable.decode(text).food(id: "a")
         #expect(food?.usualKind == nil)
         #expect(food?.common == false)
         #expect(food?.aliases == [])
+        #expect(food?.tips == [:])
     }
 }

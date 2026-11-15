@@ -78,6 +78,7 @@ cvkefridge-ios/
       StorageArea.swift           Storage area and storage kind
       Batch.swift                 Batch and expiry date
       FoodTable.swift             Table of foods and the expiry estimate (rule 4)
+      StorageHints.swift          Storage hint of a looked-up product (rule 8)
       UseFirst.swift              Use-first order and the plan of a use (rules 5 and 6)
       Change.swift                A change in the change log
       ChangeCodec.swift           A change as JSON text

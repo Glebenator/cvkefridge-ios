@@ -28,6 +28,7 @@ struct ChangeLogVectorsTests {
                 "barcode": Vectors.orNull(product.barcode),
                 "foodId": Vectors.orNull(product.foodId),
                 "note": Vectors.orNull(product.note),
+                "storageText": Vectors.orNull(product.storageText),
             ])
         }
         var areas: [[String: Any]] = []

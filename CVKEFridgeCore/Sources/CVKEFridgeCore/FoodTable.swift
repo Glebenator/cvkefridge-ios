@@ -7,7 +7,9 @@ import Foundation
 /// A food in the table of foods. `days` has the number of days that the food can be kept in each storage kind.
 /// A storage kind can be absent. `usualKind` is the storage kind where people usually keep the food when they bring it
 /// home, or nil. The food can have no days for it. It gives no estimate. `common` is true for a food that people add
-/// often. `aliases` has other names for the food, in lowercase. They give no estimate.
+/// often. `aliases` has other names for the food, in lowercase. They give no estimate. `tips` has, for a storage kind,
+/// a short text of the source about how to keep the food in that kind. The food can have no days for the kind. The
+/// tips give no estimate.
 public struct Food: Hashable, Sendable {
     public let id: String
     public let name: String
@@ -18,6 +20,7 @@ public struct Food: Hashable, Sendable {
     public let usualKind: StorageKind?
     public let common: Bool
     public let aliases: [String]
+    public let tips: [StorageKind: String]
 
     public init(
         id: String,
@@ -28,7 +31,8 @@ public struct Food: Hashable, Sendable {
         days: [StorageKind: Int],
         usualKind: StorageKind? = nil,
         common: Bool = false,
-        aliases: [String] = []
+        aliases: [String] = [],
+        tips: [StorageKind: String] = [:]
     ) {
         self.id = id
         self.name = name
@@ -39,6 +43,7 @@ public struct Food: Hashable, Sendable {
         self.usualKind = usualKind
         self.common = common
         self.aliases = aliases
+        self.tips = tips
     }
 }
 
@@ -66,9 +71,9 @@ public struct FoodTable: Equatable, Sendable {
     }
 
     /// The table in a JSON text in the format of `spec/foods.json`: an object with a `foods` list. Other keys of the
-    /// object have no effect. `subtitle`, `keywords`, `usualKind`, `common`, and `aliases` can be absent. It throws
-    /// when the text has a different format, a category that is not known, or a `days` key or a `usualKind` that is
-    /// not a storage kind.
+    /// object have no effect. `subtitle`, `keywords`, `usualKind`, `common`, `aliases`, and `tips` can be absent. It
+    /// throws when the text has a different format, a category that is not known, or a `days` key, a `tips` key, or a
+    /// `usualKind` that is not a storage kind.
     public static func decode(_ text: String) throws -> FoodTable {
         let file = try JSONDecoder().decode(FoodFile.self, from: Data(text.utf8))
         var foods: [Food] = []
@@ -90,6 +95,13 @@ public struct FoodTable: Equatable, Sendable {
                 }
                 usualKind = kind
             }
+            var tips: [StorageKind: String] = [:]
+            for (key, tip) in line.tips ?? [:] {
+                guard let kind = StorageKind(rawValue: key) else {
+                    throw JSONFormatError("The food \(line.id) has a tip for an unknown storage kind: \(key)")
+                }
+                tips[kind] = tip
+            }
             foods.append(
                 Food(
                     id: line.id,
@@ -100,7 +112,8 @@ public struct FoodTable: Equatable, Sendable {
                     days: days,
                     usualKind: usualKind,
                     common: line.common ?? false,
-                    aliases: line.aliases ?? []
+                    aliases: line.aliases ?? [],
+                    tips: tips
                 )
             )
         }
@@ -124,4 +137,5 @@ private struct FoodLine: Decodable {
     let usualKind: String?
     let common: Bool?
     let aliases: [String]?
+    let tips: [String: String]?
 }
