@@ -99,24 +99,57 @@ struct MenuChip<MenuContent: View>: View {
 }
 
 /// The look of a chip: a capsule with a line when it is off, and with a fill when it is selected.
+///
+/// At the accessibility text sizes, a long label can wrap to 3 lines, so that the full text shows. The shape is then
+/// a rectangle with round corners, because the ends of a high capsule cut the text.
 private struct ChipBody<Content: View>: View {
     let selected: Bool
     @ViewBuilder let content: Content
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The height of the chip with one line of text.
+    private static var lineHeight: CGFloat { 36 }
+
     var body: some View {
+        let wraps = dynamicTypeSize.isAccessibilitySize
+        let shape = ChipShape(wraps: wraps, cornerRadius: Self.lineHeight / 2)
         HStack(spacing: Space.s1 + 2) { content }
             .font(Typography.label)
-            .lineLimit(1)
+            .lineLimit(wraps ? 3 : 1)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: wraps)
             .foregroundStyle(selected ? Palette.onSecondaryContainer : Palette.onSurfaceVariant)
             .padding(.horizontal, Space.s3 + 2)
             .padding(.vertical, Space.s1 + 2)
-            .frame(minHeight: 36)
-            .background(selected ? Palette.secondaryContainer : .clear, in: Capsule())
+            .frame(minHeight: Self.lineHeight)
+            .background(selected ? Palette.secondaryContainer : .clear, in: shape)
             .overlay {
-                Capsule().strokeBorder(selected ? Palette.secondaryContainer : Palette.outline, lineWidth: 1)
+                shape.strokeBorder(selected ? Palette.secondaryContainer : Palette.outline, lineWidth: 1)
             }
             // The capsule is 36 points high. The target is 44 points high.
             .frame(minHeight: Metrics.minTarget)
             .contentShape(.rect)
+    }
+}
+
+/// The shape of a chip: a capsule, or a rectangle with round corners when the label can wrap.
+private struct ChipShape: InsettableShape {
+    let wraps: Bool
+    let cornerRadius: CGFloat
+    var inset: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let box = rect.insetBy(dx: inset, dy: inset)
+        if wraps {
+            return Radius.shape(max(cornerRadius - inset, 0)).path(in: box)
+        }
+        return Capsule().path(in: box)
+    }
+
+    func inset(by amount: CGFloat) -> ChipShape {
+        var shape = self
+        shape.inset += amount
+        return shape
     }
 }

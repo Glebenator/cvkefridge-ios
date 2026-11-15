@@ -162,6 +162,8 @@ struct GlassSegmentedRow<ID: Hashable & Sendable>: View {
     @Binding private var selection: ID
     private let label: LocalizedStringKey
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// - Parameter label: The name of the group of choices, for VoiceOver.
     init(_ segments: [GlassSegment<ID>], selection: Binding<ID>, label: LocalizedStringKey) {
         self.segments = segments
@@ -185,7 +187,10 @@ struct GlassSegmentedRow<ID: Hashable & Sendable>: View {
             .scrollIndicators(.hidden)
             .scrollClipDisabled()
             .onChange(of: selection) { _, new in
-                withAnimation(Motion.selection) { proxy.scrollTo(new, anchor: .center) }
+                // With Reduce Motion on, the row moves to the capsule with no animation.
+                var transaction = Transaction(animation: reduceMotion ? nil : Motion.selection)
+                transaction.disablesAnimations = reduceMotion
+                withTransaction(transaction) { proxy.scrollTo(new, anchor: .center) }
             }
         }
         .haptic(.selection, trigger: selection)
