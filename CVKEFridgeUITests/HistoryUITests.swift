@@ -160,11 +160,6 @@ final class HistoryUITests: FridgeUITestCase {
         expect(app.navigationBars["History"], "History did not open")
     }
 
-    /// The element with the identifier, of each type.
-    private func element(_ identifier: String) -> XCUIElement {
-        app.descendants(matching: .any)[identifier].firstMatch
-    }
-
     /// A change log: one change on each line, with the identifiers `t-change-1`, `t-change-2`, and so on.
     private func log(_ bodies: String...) -> String {
         bodies.enumerated()

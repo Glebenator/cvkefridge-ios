@@ -4,37 +4,38 @@ import XCTest
 /// photo" and "Remove photo" with "Undo", a picture that cannot be read, and the dialogs of the camera access.
 ///
 /// The pictures come from the built-in pictures of the debug build (`-uiTestPicture`), in the place of the photo
-/// picker and the camera of the system. With them, the debug build shows the thumbnail to the tests: its value is the
-/// name of the photo file on the screen, or "icon". The Simulator has no camera, so `-uiTestCamera` gives "Take a
-/// photo" and a camera access.
+/// picker and the camera of the system. With them, the debug build gives the name of the photo file to the tests, as
+/// the value of the photo on the screen of the food (`food_photo`) and of the small picture of a card
+/// (`product_image_<product>`, with the value "icon" for no photo). The Simulator has no camera, so `-uiTestCamera`
+/// gives "Take a photo" and a camera access.
 final class PhotoUITests: FridgeUITestCase {
     private static let product = "sample-cheddar"
     private static let pictures = ["-uiTestPicture", "photo"]
 
     /// Opens the screen of the cheddar from My Fridge.
     private func openFood(checkingRowValue rowValue: String? = nil) {
-        expect(app.staticTexts["hero_total"], "Home does not show the number of foods")
-        tab("My Fridge").tap()
-        let row = scrollTo(app.buttons["food_\(Self.product)"], "My Fridge does not show the food")
+        openMyFridge()
+        let row = scrollTo(card(Self.product), "My Fridge does not show the food")
         if let rowValue {
             // The card of My Fridge shows the photo too.
-            waitForValue(image(in: app), rowValue, "The card of My Fridge does not show the photo")
+            waitForValue(cardImage, rowValue, "The card of My Fridge does not show the photo")
         }
         row.tap()
         expect(app.staticTexts["food_name"], "The food did not open")
     }
 
-    /// The thumbnail of the cheddar in the `container`.
-    private func image(in container: XCUIElement) -> XCUIElement {
-        container.descendants(matching: .any).matching(identifier: "product_image_\(Self.product)").firstMatch
+    /// The small picture of the cheddar on its card of My Fridge.
+    private var cardImage: XCUIElement {
+        element("product_image_\(Self.product)")
     }
 
-    /// The thumbnail of the cheddar on the screen of the food.
+    /// The photo at the top of the screen of the food. A food with no photo shows the icon of its category there,
+    /// and this element is not there.
     private var foodImage: XCUIElement {
-        image(in: app.descendants(matching: .any).matching(identifier: "food_screen").firstMatch)
+        element("food_photo")
     }
 
-    /// Waits until the value of the thumbnail is `value`, and gives the value.
+    /// Waits until the value of the picture is `value`, and gives the value.
     @discardableResult
     private func waitForValue(_ element: XCUIElement, _ value: String, _ message: String) -> String {
         let predicate = NSPredicate(format: "value == %@", value)
@@ -43,7 +44,8 @@ final class PhotoUITests: FridgeUITestCase {
         return value
     }
 
-    /// Waits until the thumbnail shows a photo of the cheddar that is not `other`, and gives the name of its file.
+    /// Waits until the screen of the food shows a photo of the cheddar that is not `other`, and gives the name of its
+    /// file.
     private func waitForPhoto(other: String? = nil, _ message: String) -> String {
         let element = foodImage
         var format = "value BEGINSWITH %@"
@@ -63,7 +65,7 @@ final class PhotoUITests: FridgeUITestCase {
         openFood()
 
         // A food with no photo shows its icon. The Simulator has no camera, so only "Choose a photo" is there.
-        waitForValue(foodImage, "icon", "The food has a photo at the start")
+        waitToGo(foodImage, "The food has a photo at the start")
         XCTAssertFalse(app.buttons["photo_take"].exists, "A device with no camera offers Take a photo")
         app.buttons["photo_choose"].tap()
         expect(app.buttons["photo_change"], "The food did not get the photo")
@@ -90,7 +92,7 @@ final class PhotoUITests: FridgeUITestCase {
         app.buttons["photo_remove"].tap()
         expect(app.staticTexts["Photo removed"], "The remove has no message")
         expect(app.buttons["photo_choose"], "The food still has a photo")
-        waitForValue(foodImage, "icon", "The icon does not show after the remove")
+        waitToGo(foodImage, "The icon does not show after the remove")
         capture("photo-food-removed")
         expect(app.buttons["Undo"], "The message of the remove has no Undo").tap()
         expect(app.buttons["photo_change"], "Undo did not bring the photo back")
@@ -106,7 +108,7 @@ final class PhotoUITests: FridgeUITestCase {
             "A picture that cannot be read gave no message"
         )
         XCTAssertTrue(app.buttons["photo_choose"].exists, "The food got a photo from a picture that cannot be read")
-        waitForValue(foodImage, "icon", "The food shows a photo")
+        waitToGo(foodImage, "The food shows a photo")
     }
 
     func test3TheCameraIsExplainedBeforeIOSAsksAndAnAccessThatIsOffOpensSettings() throws {

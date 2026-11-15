@@ -126,6 +126,25 @@ private struct FoodPhoto: View {
         .accessibilityLabel(Text("Photo of \(name)", comment: "VoiceOver reads it for the photo of a food. The value is the name of the food."))
         .accessibilityAddTraits(.isImage)
         .accessibilityIdentifier("food_photo")
+        .modifier(PhotoFileValue(photo: photo))
+    }
+}
+
+/// With the built-in pictures of the UI tests (`TestPictures`), the debug build gives the name of the photo file as
+/// the value of the photo. A test then knows which photo shows, as for the small picture of a card (`ProductImage`).
+private struct PhotoFileValue: ViewModifier {
+    let photo: ProductPhoto
+
+    func body(content: Content) -> some View {
+        #if DEBUG
+        if TestPictures.kind != nil {
+            content.accessibilityValue(Text(verbatim: photo.url.lastPathComponent))
+        } else {
+            content
+        }
+        #else
+        content
+        #endif
     }
 }
 

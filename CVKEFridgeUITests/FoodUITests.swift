@@ -7,8 +7,9 @@ import XCTest
 ///
 /// The labels in these tests are the labels of VoiceOver: they have a comma where the screen has the separator sign.
 ///
-/// "Used" and "Thrown away" are here only for food with one item left. Such food needs no question for a quantity,
-/// so these tests do not use the sheet of the quantity.
+/// "Used" and "Thrown away" ask for a quantity in a sheet (`test12`). Food with one item left needs no question
+/// (`test04`). The photo comes from the built-in pictures of the debug build (`-uiTestPicture`), in the place of the
+/// photo picker of the system.
 final class FoodUITests: FridgeUITestCase {
     // MARK: The product and its batches
 
@@ -70,13 +71,13 @@ final class FoodUITests: FridgeUITestCase {
         app.buttons["batch_menu_sample-batch-3"].tap()
         expect(app.buttons["menu_delete_batch"], "The menu of the batch has no Delete batch").tap()
         expect(app.staticTexts["1 batch of Whole milk deleted"], "The message of the delete did not show")
-        waitForLabel(app.staticTexts["food_batches"], "1 batch")
+        wait(for: app.staticTexts["food_batches"], toHaveLabel: "1 batch")
         XCTAssertEqual(app.staticTexts["food_summary"].label, "Dairy, 2 l")
         // One batch is not "Use first".
         XCTAssertFalse(element("batch_sample-batch-4").label.contains("Use first"))
 
         app.buttons["Undo"].tap()
-        waitForLabel(app.staticTexts["food_batches"], "2 batches")
+        wait(for: app.staticTexts["food_batches"], toHaveLabel: "2 batches")
         XCTAssertTrue(element("batch_sample-batch-3").exists, "Undo did not bring the batch back")
     }
 
@@ -125,18 +126,18 @@ final class FoodUITests: FridgeUITestCase {
 
         // An expired batch starts from today: one more day is good until tomorrow.
         app.buttons["later_expiry_1"].tap()
-        waitForLabel(batch, containing: "Expires tomorrow")
+        wait(for: batch, toHaveLabelWith: "Expires tomorrow")
         // The new date is not from the package, and the screen does not say so.
         XCTAssertTrue(batch.label.contains("Your date: Nov 15, 2026"), batch.label)
         expect(app.staticTexts["Chicken thighs now expires on Nov 15, 2026"], "The message of the new date did not show")
         capture("food-your-date")
 
         app.buttons["Undo"].tap()
-        waitForLabel(batch, containing: "Expired yesterday, estimated")
+        wait(for: batch, toHaveLabelWith: "Expired yesterday, estimated")
 
         // One more week is seven days from today.
         app.buttons["later_expiry_7"].tap()
-        waitForLabel(batch, containing: "Your date: Nov 21, 2026")
+        wait(for: batch, toHaveLabelWith: "Your date: Nov 21, 2026")
         XCTAssertFalse(app.buttons["later_expiry_1"].exists, "A fresh batch has the Still good? choices")
     }
 
@@ -150,13 +151,13 @@ final class FoodUITests: FridgeUITestCase {
         capture("food-other-date")
         app.buttons["date_confirm"].tap()
         let batch = element("batch_sample-batch-1")
-        waitForLabel(batch, containing: "Your date: Nov 15, 2026")
+        wait(for: batch, toHaveLabelWith: "Your date: Nov 15, 2026")
         XCTAssertTrue(batch.label.contains("Expires tomorrow"), batch.label)
 
         // The batch now expires tomorrow, so it is expiring. The calendar starts on the day after that date.
         app.buttons["later_expiry_other"].tap()
         expect(app.buttons["date_confirm"], "The calendar did not open the second time").tap()
-        waitForLabel(batch, containing: "Your date: Nov 16, 2026")
+        wait(for: batch, toHaveLabelWith: "Your date: Nov 16, 2026")
     }
 
     // MARK: The note
@@ -183,7 +184,7 @@ final class FoodUITests: FridgeUITestCase {
         element("food_note_field").typeText("!")
         app.buttons["form_close"].tap()
         expect(app.buttons["Discard changes"], "The changed note did not ask before it closed").tap()
-        waitForLabel(app.buttons["food_note"], containing: "For the cake")
+        wait(for: app.buttons["food_note"], toHaveLabelWith: "For the cake")
         XCTAssertFalse(app.buttons["food_note"].label.contains("!"), "The note changed with no save")
 
         // A note with no text is removed, and "Undo" brings it back.
@@ -195,7 +196,7 @@ final class FoodUITests: FridgeUITestCase {
         expect(app.staticTexts["Note of Greek yoghurt removed"], "The message of the removed note did not show")
         expect(app.buttons["food_add_note"], "The removed note still shows")
         app.buttons["Undo"].tap()
-        waitForLabel(app.buttons["food_note"], containing: "For the cake")
+        wait(for: app.buttons["food_note"], toHaveLabelWith: "For the cake")
     }
 
     // MARK: Delete food
@@ -210,7 +211,7 @@ final class FoodUITests: FridgeUITestCase {
 
         // The screen closes, and the message with "Undo" shows on My Fridge.
         expect(app.staticTexts["Cheddar deleted"], "The message of the delete did not show")
-        waitUntilGone(app.staticTexts["food_name"], "The screen of the deleted food stayed open")
+        waitToGo(app.staticTexts["food_name"], "The screen of the deleted food stayed open")
         XCTAssertTrue(app.navigationBars["My Fridge"].exists, "The screen did not go back to My Fridge")
         XCTAssertFalse(card("sample-cheddar").exists, "My Fridge shows the deleted food")
 
@@ -220,26 +221,26 @@ final class FoodUITests: FridgeUITestCase {
 
     func test09TheScreenClosesWhenTheAddOfItsFoodIsUndone() throws {
         launch(inventory: .empty)
-        expect(app.staticTexts["hero_total"], "Home did not open")
-        tab("Add food").tap()
+        // The form opens from the empty My Fridge. So the card of the new food is on the screen when the form
+        // closes, and the test needs only one tap to open the food while the message of the add shows.
+        openMyFridge()
+        expect(app.buttons["empty_add"], "The empty My Fridge has no add form").tap()
         let name = expect(app.textFields["field_name"], "The add form did not open")
-        name.tap()
         name.typeText("Kiwi")
+        // The elements are found before the save, so that the test loses no time while the message shows.
+        let kiwi = card(named: "Kiwi")
+        let undo = app.buttons["Undo"]
+        let title = app.staticTexts["food_name"]
         app.buttons["save"].tap()
-        expect(app.staticTexts["Kiwi added"], "The message of the add did not show")
 
         // The message stays above the tab bar while the screen of the new food opens. Its "Undo" removes the food.
-        tab("My Fridge").tap()
-        let kiwi = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Kiwi")).firstMatch
         expect(kiwi, "My Fridge does not show the new food").tap()
-        expect(app.staticTexts["food_name"], "The screen of the food did not open")
-        // The message stays for some seconds only. On a slow simulator it can be gone now.
-        guard app.buttons["Undo"].exists else {
-            throw XCTSkip("The message of the add closed before the test got to its Undo.")
-        }
-        app.buttons["Undo"].tap()
-        waitUntilGone(app.staticTexts["food_name"], "The screen of a food that is not there stayed open")
+        expect(title, "The screen of the food did not open")
+        XCTAssertEqual(title.label, "Kiwi")
+        expect(undo, "The message of the add does not show above the screen of the food", timeout: 2).tap()
+        waitToGo(title, "The screen of a food that is not there stayed open")
         XCTAssertTrue(app.navigationBars["My Fridge"].exists, "The screen did not go back to My Fridge")
+        expect(app.staticTexts["No items yet"], "My Fridge shows the food after the Undo of its add")
     }
 
     // MARK: The storage tips and the history
@@ -280,20 +281,15 @@ final class FoodUITests: FridgeUITestCase {
     // MARK: The photo
 
     func test11APhotoShowsAtTheTopAndARemovedPhotoComesBackWithUndo() throws {
-        launch(inventory: .sample)
+        // "Choose a photo" gives a built-in picture of the debug build. The photo picker of the system is a
+        // different process, and it shows the pictures of the simulator: a test cannot rely on it.
+        launch(inventory: .sample, arguments: ["-uiTestPicture", "photo"])
         openFood("sample-milk", name: "Whole milk")
         XCTAssertFalse(element("food_photo").exists, "A food with no photo shows a photo")
-
-        // The photo picker of the system is a different process. It shows the pictures of the simulator.
         expect(app.buttons["photo_choose"], "The food has no Choose a photo").tap()
-        guard let picture = pictureOfThePicker() else {
-            throw XCTSkip("The photo picker of this simulator shows no picture.")
-        }
-        // The pictures of the other process are not hittable for XCTest, so the tap is at a position.
-        picture.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         // The photo is at the top, above the name, with "Change photo" and "Remove photo".
-        let photo = expect(element("food_photo"), "The photo of the food does not show", timeout: 20)
+        let photo = expect(element("food_photo"), "The photo of the food does not show")
         XCTAssertEqual(photo.label, "Photo of Whole milk")
         XCTAssertLessThan(photo.frame.minY, app.staticTexts["food_name"].frame.minY, "The photo is not above the name")
         XCTAssertTrue(app.buttons["photo_change"].exists, "A food with a photo has no Change photo")
@@ -301,10 +297,87 @@ final class FoodUITests: FridgeUITestCase {
 
         app.buttons["photo_remove"].tap()
         expect(app.staticTexts["Photo removed"], "The message of the removed photo did not show")
-        waitUntilGone(element("food_photo"), "The removed photo still shows")
+        waitToGo(element("food_photo"), "The removed photo still shows")
         XCTAssertTrue(app.buttons["photo_choose"].exists)
         app.buttons["Undo"].tap()
         expect(element("food_photo"), "Undo did not bring the photo back")
+    }
+
+    // MARK: The quantity
+
+    func test12ATypedQuantityIsRecordedFromTheFoodFromABatchAndFromTheCardOfMyFridge() throws {
+        launch(inventory: .sample)
+        openFood("sample-milk", name: "Whole milk")
+        XCTAssertEqual(app.staticTexts["food_summary"].label, "Dairy, 3 l")
+
+        // "Used" of the food asks for a quantity. The field starts with the quantity of the batch to use first.
+        app.buttons["food_used"].tap()
+        var quantity = expect(app.textFields["field_quantity"], "The sheet for the quantity did not open")
+        XCTAssertEqual(quantity.value as? String, "1")
+        XCTAssertTrue(app.staticTexts["How much was used?"].exists, "The sheet does not ask how much was used")
+        XCTAssertEqual(
+            app.staticTexts["take_available"].label,
+            "Whole milk: you have 3 l. The quantity comes from the oldest batch first."
+        )
+        capture("food-take-quantity")
+
+        // A quantity that is more than the food has is not recorded.
+        replaceText(of: quantity, with: "3.5")
+        app.buttons["take_confirm"].tap()
+        expect(app.staticTexts["You have only 3 l."], "The sheet took more than the food has")
+
+        // 1.5 l is more than the first batch has, so the rest comes from the second batch.
+        replaceText(of: quantity, with: "1.5")
+        app.buttons["take_confirm"].tap()
+        expect(app.staticTexts["1.5 l of Whole milk used"], "The message of the quantity did not show")
+        waitToGo(quantity, "The sheet did not close")
+        wait(for: app.staticTexts["food_summary"], toHaveLabel: "Dairy, 1.5 l")
+        wait(for: app.staticTexts["food_batches"], toHaveLabel: "1 batch")
+        XCTAssertFalse(element("batch_sample-batch-3").exists, "The first batch stayed with no quantity")
+        XCTAssertTrue(element("batch_sample-batch-4").label.contains("1.5 l"), element("batch_sample-batch-4").label)
+
+        // "Undo" brings the two batches back.
+        app.buttons["Undo"].tap()
+        wait(for: app.staticTexts["food_summary"], toHaveLabel: "Dairy, 3 l")
+        wait(for: app.staticTexts["food_batches"], toHaveLabel: "2 batches")
+
+        // The menu of a batch asks for a quantity of that batch only.
+        app.buttons["batch_menu_sample-batch-4"].tap()
+        expect(app.buttons["menu_thrown_away"], "The menu of the batch has no Thrown away").tap()
+        quantity = expect(app.textFields["field_quantity"], "The sheet for the quantity of the batch did not open")
+        XCTAssertEqual(quantity.value as? String, "2")
+        XCTAssertTrue(app.staticTexts["How much was thrown away?"].exists, "The sheet does not ask how much was thrown away")
+        XCTAssertTrue(app.staticTexts["take_available"].label.hasPrefix("Whole milk: you have 2 l."), app.staticTexts["take_available"].label)
+        replaceText(of: quantity, with: "0.5")
+        // Two fast taps record the quantity one time. The sheet is on the screen while it closes.
+        app.buttons["take_confirm"].doubleTap()
+        expect(app.staticTexts["0.5 l of Whole milk thrown away"], "The message of the quantity did not show")
+        waitToGo(quantity, "The sheet did not close")
+        wait(for: element("batch_sample-batch-4"), toHaveLabelWith: "1.5 l")
+        wait(for: app.staticTexts["food_summary"], toHaveLabel: "Dairy, 2.5 l")
+        XCTAssertTrue(element("batch_sample-batch-3").label.contains("1 l"), "The quantity came from a different batch")
+
+        // The menu of the card on My Fridge asks for a quantity of the food in that storage area.
+        app.navigationBars.buttons.firstMatch.tap()
+        let milk = scrollTo(card("sample-milk", area: "fridge"), "My Fridge does not show the milk")
+        XCTAssertTrue(value(of: milk).contains("2.5 l"), value(of: milk))
+        app.buttons["food_menu_sample-milk/fridge"].tap()
+        expect(app.buttons["menu_used"], "The menu of the card has no Used").tap()
+        quantity = expect(app.textFields["field_quantity"], "The sheet for the quantity did not open from the card")
+        XCTAssertEqual(quantity.value as? String, "1")
+        XCTAssertTrue(app.staticTexts["take_available"].label.hasPrefix("Whole milk: you have 2.5 l."), app.staticTexts["take_available"].label)
+        replaceText(of: quantity, with: "2")
+        app.buttons["take_confirm"].tap()
+        expect(app.staticTexts["2 l of Whole milk used"], "The message of the quantity did not show on My Fridge")
+        waitToGo(quantity, "The sheet did not close")
+        wait(for: milk, toHaveValueWith: "0.5 l")
+
+        // The close button of the sheet records nothing.
+        app.buttons["food_menu_sample-milk/fridge"].tap()
+        expect(app.buttons["menu_thrown_away"], "The menu of the card has no Thrown away").tap()
+        expect(app.buttons["take_close"], "The sheet has no close button").tap()
+        waitToGo(app.textFields["field_quantity"], "The sheet did not close")
+        XCTAssertTrue(value(of: milk).contains("0.5 l"), "The closed sheet recorded a quantity: \(value(of: milk))")
     }
 
     // MARK: Parts
@@ -325,49 +398,8 @@ final class FoodUITests: FridgeUITestCase {
         return lines.joined(separator: "\n") + "\n"
     }()
 
-    /// An element of each type, by its identifier.
-    private func element(_ identifier: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-    }
-
-    /// The card of a food on My Fridge. Its identifier starts with "food_" and the identifier of the product.
-    private func card(_ productId: String) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "food_\(productId)")).firstMatch
-    }
-
-    /// The first picture in the photo picker of the system, or nil when the picker shows none. The picker is a
-    /// different process. With large text, its pictures are below its first screen.
-    private func pictureOfThePicker() -> XCUIElement? {
-        let picker = XCUIApplication(bundleIdentifier: "com.apple.mobileslideshow.photospicker")
-        let picture = picker.images.matching(identifier: "PXGGridLayout-Info").firstMatch
-        if !picture.waitForExistence(timeout: 15) {
-            picker.swipeUp()
-        }
-        return picture.waitForExistence(timeout: 5) ? picture : nil
-    }
-
-    /// Opens the screen of a food from My Fridge.
+    /// Opens the screen of a food from My Fridge, and makes sure that it is the screen of the food with the `name`.
     private func openFood(_ productId: String, name: String) {
-        expect(tab("My Fridge"), "The tab bar has no My Fridge").tap()
-        expect(app.navigationBars["My Fridge"], "My Fridge did not open")
-        scrollTo(card(productId), "My Fridge does not show \(name)").tap()
-        let title = expect(app.staticTexts["food_name"], "The screen of the food did not open")
-        XCTAssertEqual(title.label, name)
-    }
-
-    private func waitForLabel(_ element: XCUIElement, _ label: String) {
-        let predicate = NSPredicate(format: "label == %@", label)
-        wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: 10)
-    }
-
-    private func waitForLabel(_ element: XCUIElement, containing text: String) {
-        let predicate = NSPredicate(format: "label CONTAINS %@", text)
-        wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: 10)
-    }
-
-    private func waitUntilGone(_ element: XCUIElement, _ message: String) {
-        let predicate = NSPredicate(format: "exists == false")
-        let result = XCTWaiter().wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: 10)
-        XCTAssertEqual(result, .completed, message)
+        XCTAssertEqual(openFood(productId).label, name)
     }
 }

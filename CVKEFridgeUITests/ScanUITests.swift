@@ -26,37 +26,10 @@ final class ScanUITests: FridgeUITestCase {
 
     // MARK: - Steps
 
-    /// An element of each type, by its identifier: a part that VoiceOver reads as one element is not always a text.
-    private func part(_ identifier: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-    }
-
-    /// Opens the scanner from the menu of My Fridge.
-    private func openScanner() {
-        if !app.buttons["my_fridge_menu"].exists {
-            expect(app.staticTexts["hero_total"], "Home does not show the number of foods")
-            tab("My Fridge").tap()
-        }
-        expect(app.buttons["my_fridge_menu"], "My Fridge has no menu").tap()
-        expect(app.buttons["menu_scan"], "The menu has no scanner").tap()
-        // The scanner says what leaves the phone.
-        let privacy = expect(part("scan_privacy"), "The scanner does not say what leaves the phone")
-        XCTAssertTrue(privacy.label.contains("Only the barcode number goes to Open Food Facts"), privacy.label)
-    }
-
-    /// Types a barcode in the sheet of the scanner, and selects "Look up".
-    private func typeBarcode(_ barcode: String) {
-        expect(app.buttons["type_barcode"], "The scanner has no \"Type the barcode\"").tap()
-        let field = expect(app.textFields["field_barcode"], "The sheet for a typed barcode did not open")
-        // The field has the keyboard when the sheet opens.
-        field.typeText(barcode)
-        app.buttons["barcode_look_up"].tap()
-    }
-
     /// The add form above the scanner, with its name field.
     @discardableResult
     private func expectForm(name: String) -> XCUIElement {
-        let field = expect(app.textFields["field_name"], "The add form did not open above the scanner")
+        let field = expectAddForm("The add form did not open above the scanner")
         // An empty field gives its placeholder as its value.
         let value = field.value as? String ?? ""
         XCTAssertEqual(value == field.placeholderValue ? "" : value, name, "The name of the form")
@@ -65,8 +38,7 @@ final class ScanUITests: FridgeUITestCase {
 
     private func expectScannerOnly() {
         expect(app.buttons["type_barcode"], "The scanner does not show again")
-        let form = app.textFields["field_name"]
-        wait(for: [expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: form)], timeout: 10)
+        waitToGo(app.navigationBars["Add food"], "The add form stayed above the scanner")
     }
 
     private func expectHomeTotal(_ total: String) {
@@ -75,18 +47,13 @@ final class ScanUITests: FridgeUITestCase {
         wait(for: [expectation(for: NSPredicate(format: "label == %@", total), evaluatedWith: hero)], timeout: 10)
     }
 
-    /// A text that only the complete add form shows. The placeholder of the add form does not show it, so the check
-    /// is an expected failure there, and a real check when the add form is complete.
-    private func expectInCompleteForm(_ element: XCUIElement, _ message: String) {
-        if app.otherElements["scan_note"].exists || app.staticTexts["scan_note"].exists || element.exists {
-            XCTAssertTrue(element.exists, message)
-        } else {
-            let options = XCTExpectedFailure.Options()
-            options.isStrict = false
-            XCTExpectFailure("The placeholder of the add form: \(message)", options: options) {
-                XCTAssertTrue(element.exists, message)
-            }
-        }
+    /// The note at the top of the add form after a scan: where the values come from, and the barcode that the food
+    /// keeps.
+    private func expectScanNote(source: String, barcode: String) {
+        // With large text, the note is above the screen after the scroll to the name field.
+        let note = scrollBackTo(element("scan_note"), "The form does not say where its values come from")
+        XCTAssertTrue(note.label.hasPrefix(source), "The note of the scan does not start with \"\(source)\": \(note.label)")
+        XCTAssertTrue(note.label.contains("Barcode \(barcode)."), "The note of the scan does not show the barcode: \(note.label)")
     }
 
     // MARK: - Tests
@@ -94,12 +61,16 @@ final class ScanUITests: FridgeUITestCase {
     func test1AFoundProductFillsInTheFormAndTheNextScanFindsItInTheInventory() throws {
         launch(inventory: .empty, lookups: ["3017620422003": .response(body: Self.nutella)])
         openScanner()
+        // The scanner says what leaves the phone.
+        let privacy = expect(element("scan_privacy"), "The scanner does not say what leaves the phone")
+        XCTAssertTrue(privacy.label.contains("Only the barcode number goes to Open Food Facts"), privacy.label)
         // The Simulator has no camera. The scanner says so, and it works with a typed barcode.
         expect(app.staticTexts["No camera on this device"], "The scanner does not say that there is no camera")
         capture("scan-no-camera")
         typeBarcode("3017620422003")
 
         expectForm(name: "Nutella")
+        expectScanNote(source: "From Open Food Facts. Check the values before you save.", barcode: "3017620422003")
         XCTAssertEqual(app.textFields["field_quantity"].value as? String, "400")
         for (field, value) in [("field_category", "Condiment"), ("field_unit", "g")] {
             let picker = app.buttons[field].firstMatch
@@ -120,6 +91,10 @@ final class ScanUITests: FridgeUITestCase {
         openScanner()
         typeBarcode("3017620422003")
         expectForm(name: "Nutella")
+        // The product is in the inventory now. The form says that it adds a batch, and it has no note of a lookup.
+        let existing = scrollTo(element("name_existing"), "The form does not say that it adds a batch")
+        XCTAssertEqual(existing.label, "This food is in your inventory. The form adds a batch to it.")
+        XCTAssertFalse(element("scan_note").exists, "A food of the inventory has a note of the lookup")
         app.buttons["save_scan_next"].tap()
 
         // "Save and scan next" shows the scanner again. The message is above the panel: "Undo" is there, and the
@@ -127,7 +102,7 @@ final class ScanUITests: FridgeUITestCase {
         expectScannerOnly()
         expect(app.staticTexts["Nutella added"], "The message of the second add did not show")
         let undo = expect(app.buttons["Undo"], "The message has no Undo")
-        let panel = expect(part("scan_panel"), "The scanner has no panel")
+        let panel = expect(element("scan_panel"), "The scanner has no panel")
         XCTAssertLessThanOrEqual(undo.frame.maxY, panel.frame.minY, "The message is not above the panel")
         XCTAssertFalse(undo.frame.intersects(panel.frame), "The message covers the panel")
         capture("scan-notice-above-panel")
@@ -140,15 +115,18 @@ final class ScanUITests: FridgeUITestCase {
 
         // The name has no food of the table of foods. The storage text of the package gives the freezer.
         expectForm(name: "Dr. Oetker Ristorante Mozzarella")
+        // The form says where the values come from.
+        expectScanNote(source: "From Open Food Facts. Check the values before you save.", barcode: "4006381333931")
         let area = scrollTo(app.buttons["field_area"].firstMatch, "The form has no storage area")
         XCTAssertEqual(area.value as? String, "Freezer", "The storage hint did not select the freezer")
         capture("scan-form-frozen")
-        // The form says where the values come from, and the storage tips show the text of the package.
-        expectInCompleteForm(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "From Open Food Facts")).firstMatch,
-            "The form does not say that the values come from Open Food Facts"
-        )
-        expectInCompleteForm(app.staticTexts[Self.storageText], "The form does not show the text of the package")
+        // The storage tips show the text of the package, with its source. The name has no food of the table of
+        // foods, so there is no general advice.
+        let package = scrollTo(element("storage_advice_package"), "The form does not show the text of the package")
+        XCTAssertEqual(package.label, Self.storageText)
+        XCTAssertTrue(app.staticTexts["From the package"].exists, "The text of the package does not name its source")
+        XCTAssertFalse(element("storage_advice_general").exists, "A name with no food of the table has general advice")
+        capture("scan-form-frozen-storage-tips")
         app.buttons["save"].tap()
 
         expect(app.staticTexts["Dr. Oetker Ristorante Mozzarella added"], "The message of the add did not show")
@@ -161,12 +139,11 @@ final class ScanUITests: FridgeUITestCase {
         typeBarcode("4099999999996")
 
         let name = expectForm(name: "")
-        expectInCompleteForm(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Open Food Facts has no product")).firstMatch,
-            "The form does not say that Open Food Facts has no product"
-        )
-        // The complete form puts the keyboard in the empty name field. A tap does no harm there.
-        name.tap()
+        expectScanNote(source: "Open Food Facts has no product with this barcode. Type the name.", barcode: "4099999999996")
+        scrollTo(name, "The name field is not on the screen")
+        // The empty name field has the keyboard, so the person types the name at once.
+        wait(for: name, toMatch: NSPredicate(format: "hasKeyboardFocus == true"), "The empty name field does not have the keyboard")
+        capture("scan-form-not-found")
         name.typeText("Oat drink")
         app.buttons["save_scan_next"].tap()
 
@@ -185,41 +162,48 @@ final class ScanUITests: FridgeUITestCase {
         typeBarcode("5449000000997")
         let problem = expect(app.staticTexts["error_barcode"], "The sheet does not show the wrong check digit")
         XCTAssertTrue(problem.label.contains("A digit is not correct"), problem.label)
-        XCTAssertFalse(part("lookup_failed").exists)
+        XCTAssertFalse(element("lookup_failed").exists)
         capture("scan-wrong-check-digit")
         app.buttons["barcode_cancel"].tap()
         expect(app.buttons["type_barcode"], "The sheet did not close")
-        XCTAssertFalse(part("lookup_failed").exists, "A number with a wrong check digit was looked up")
+        XCTAssertFalse(element("lookup_failed").exists, "A number with a wrong check digit was looked up")
 
         typeBarcode("5449000000996")
-        let failed = expect(part("lookup_failed"), "The scanner does not show the failed lookup")
+        let failed = expect(element("lookup_failed"), "The scanner does not show the failed lookup")
         XCTAssertTrue(failed.label.contains("No connection"), failed.label)
         XCTAssertTrue(failed.label.contains("5449000000996"), "The failure does not name the barcode that stays")
         capture("scan-no-connection")
 
         // "Try again" does one lookup. The app never tries again by itself.
         app.buttons["lookup_try_again"].tap()
-        expect(part("lookup_failed"), "The scanner does not show the second failed lookup")
+        expect(element("lookup_failed"), "The scanner does not show the second failed lookup")
 
         // "Scan again" forgets the barcode, and the panel has its two buttons again.
         app.buttons["scan_again"].tap()
         expect(app.buttons["scan_add_by_hand"], "\"Scan again\" did not show the panel of the scanner")
 
         typeBarcode("5449000000996")
-        expect(part("lookup_failed"), "The scanner does not show the failed lookup")
+        expect(element("lookup_failed"), "The scanner does not show the failed lookup")
         app.buttons["enter_by_hand"].tap()
         let name = expectForm(name: "")
-        expectInCompleteForm(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "5449000000996")).firstMatch,
-            "The form does not show the barcode that the food keeps"
-        )
-        name.tap()
+        // The form shows the barcode that the food keeps, and says that the app did not look it up.
+        expectScanNote(source: "The app could not look up this barcode. Type the name.", barcode: "5449000000996")
+        scrollTo(name, "The name field is not on the screen")
+        wait(for: name, toMatch: NSPredicate(format: "hasKeyboardFocus == true"), "The empty name field does not have the keyboard")
         name.typeText("Cola")
         app.buttons["save"].tap()
 
         expect(app.staticTexts["Cola added"], "The message of the add did not show")
         expect(app.buttons["my_fridge_menu"], "The form and the scanner did not close")
         expectHomeTotal("1")
+
+        // The food kept the barcode: the next scan finds it in the inventory, with no lookup. The lookup has no
+        // connection, so a lookup shows the failure.
+        openScanner()
+        typeBarcode("5449000000996")
+        expectForm(name: "Cola")
+        XCTAssertFalse(element("lookup_failed").exists, "The scan of a kept barcode used the network")
+        scrollTo(element("name_existing"), "The form does not say that it adds a batch to the food")
     }
 
     func test5EachFailureOfTheLookupHasItsWords() throws {
@@ -235,7 +219,7 @@ final class ScanUITests: FridgeUITestCase {
             ("4099999999996", "Open Food Facts has a problem"),
         ] {
             typeBarcode(barcode)
-            let failed = expect(part("lookup_failed"), "The scanner does not show the failed lookup")
+            let failed = expect(element("lookup_failed"), "The scanner does not show the failed lookup")
             XCTAssertTrue(failed.label.contains(title), "\(failed.label) does not say \(title)")
             // With a large text size, the panel scrolls to its buttons.
             for button in ["lookup_try_again", "enter_by_hand", "scan_again"] {
@@ -259,7 +243,7 @@ final class ScanUITests: FridgeUITestCase {
         typeBarcode("0123 4565")
 
         expectForm(name: "Cola can")
-        XCTAssertFalse(part("lookup_failed").exists, "The lookup used the network for a barcode of the inventory")
+        XCTAssertFalse(element("lookup_failed").exists, "The lookup used the network for a barcode of the inventory")
     }
 
     func test7TheCameraStateShowsTheHintTheLightAndThePanel() throws {
@@ -300,7 +284,7 @@ final class ScanUITests: FridgeUITestCase {
         XCUIDevice.shared.orientation = .landscapeLeft
         defer { XCUIDevice.shared.orientation = .portrait }
 
-        let panel = expect(part("scan_panel"), "The scanner has no panel")
+        let panel = expect(element("scan_panel"), "The scanner has no panel")
         // The panel starts at the top of the screen, after the close button. Below the camera, it starts below it.
         let close = app.buttons["scan_close"]
         let atSide = NSPredicate { _, _ in
@@ -317,7 +301,7 @@ final class ScanUITests: FridgeUITestCase {
 
         // A failed lookup has its three buttons in the panel at the side.
         typeBarcode("5449000000996")
-        expect(part("lookup_failed"), "The scanner does not show the failed lookup")
+        expect(element("lookup_failed"), "The scanner does not show the failed lookup")
         for button in ["lookup_try_again", "enter_by_hand", "scan_again"] {
             XCTAssertTrue(app.buttons[button].exists, "The failed lookup has no \(button)")
         }

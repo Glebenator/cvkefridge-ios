@@ -142,8 +142,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
 
         // My Fridge opens on the Fridge. The test starts with all storage areas.
         XCTAssertTrue(areaTab("Fridge").isSelected)
-        areaTab("All").tap()
-        wait(for: areaTab("All"), toBeSelected: true)
+        selectArea("All")
 
         // The list starts with the food that expires first. One card has both batches of the milk in the Fridge.
         let milk = scrollTo(app.buttons["food_sample-milk/fridge"], "My Fridge does not show the milk")
@@ -165,7 +164,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertFalse(app.buttons["food_sample-milk/fridge"].exists)
 
         // The storage areas are tabs. The search text stays when the tab changes.
-        areaTab("Freezer").tap()
+        selectArea("Freezer")
         expect(app.staticTexts["No matching items"], "The Freezer shows food for a search text that it does not have")
         XCTAssertFalse(app.buttons["filter_clear"].exists, "Clear filters shows with no filter")
         capture("my-fridge-no-match")
@@ -204,7 +203,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertEqual(value(of: app.buttons["filter_category"]), "")
 
         // The two freshness chips together show the food that is expiring or expired.
-        areaTab("All").tap()
+        selectArea("All")
         expired.tap()
         expect(app.buttons["food_sample-chicken/fridge"], "The list does not show the expired food")
         XCTAssertFalse(app.buttons["food_sample-spinach/fridge"].exists)
@@ -245,12 +244,10 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertTrue(value(of: milk).contains("3 l"), value(of: milk))
 
         // The oldest batch of the milk has 1 l. A swipe from the leading side records it as used.
-        milk.swipeRight()
-        let used = app.buttons["swipe_used"]
-        if used.waitForExistence(timeout: 2) {
-            capture("my-fridge-swipe-used")
-            used.tap()
-        }
+        showSwipeAction(of: milk, fromLeading: true)
+        let used = expect(app.buttons["swipe_used"], "The swipe from the leading side has no Used")
+        capture("my-fridge-swipe-used")
+        used.tap()
         expect(app.staticTexts["1 l of Whole milk used"], "The message of the swipe did not show")
         capture("my-fridge-used-undo")
         wait(for: milk, toHaveValueWith: "2 l")
@@ -260,12 +257,10 @@ final class InventoryScreensUITests: FridgeUITestCase {
 
         // A swipe from the trailing side records the oldest batch as thrown away.
         let spinach = scrollBackTo(app.buttons["food_sample-spinach/fridge"], "My Fridge does not show the spinach")
-        spinach.swipeLeft()
-        let thrownAway = app.buttons["swipe_thrown_away"]
-        if thrownAway.waitForExistence(timeout: 2) {
-            capture("my-fridge-swipe-thrown-away")
-            thrownAway.tap()
-        }
+        showSwipeAction(of: spinach, fromLeading: false)
+        let thrownAway = expect(app.buttons["swipe_thrown_away"], "The swipe from the trailing side has no Thrown away")
+        capture("my-fridge-swipe-thrown-away")
+        thrownAway.tap()
         expect(app.staticTexts["200 g of Baby spinach thrown away"], "The message of the swipe did not show")
         XCTAssertTrue(app.buttons["Undo"].exists)
         // The spinach had one batch, so its card goes.
@@ -303,12 +298,8 @@ final class InventoryScreensUITests: FridgeUITestCase {
         wait(for: cheddar, toHaveValueWith: "250 g")
 
         // With one item left, the menu records it with no question.
-        let juice = app.buttons["food_menu_sample-juice/fridge"]
-        if !(juice.exists && juice.isHittable) {
-            // With large text, the juice can be above the part of the list that shows.
-            app.swipeDown(velocity: .slow)
-        }
-        scrollTo(juice, "My Fridge does not show the juice").tap()
+        // With large text, the juice can be above the part of the list that shows.
+        scrollBackTo(app.buttons["food_menu_sample-juice/fridge"], "My Fridge does not show the juice").tap()
         expect(app.buttons["menu_used"], "The menu of the card did not open").tap()
         expect(app.staticTexts["1 bottle of Orange juice used"], "One item left was not recorded at once")
         XCTAssertFalse(app.textFields["field_quantity"].exists, "The sheet opened for one item")
@@ -383,7 +374,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertTrue(app.buttons["area_card_sample-pantry"].exists)
 
         // An empty storage area goes, and "Undo" brings it back.
-        cellar.swipeLeft()
+        showSwipeAction(of: scrollTo(cellar, "The new storage area is not on the screen"), fromLeading: false)
         expect(app.buttons["swipe_delete_area"], "The swipe has no Delete").tap()
         expect(app.staticTexts["Cellar deleted"], "The message of the delete did not show")
         waitToGo(cellar, "The storage area stayed after the delete")
@@ -403,14 +394,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         app.navigationBars["Storage areas"].buttons.firstMatch.tap()
         expect(app.buttons["my_fridge_menu"], "The back button did not go to My Fridge")
         // With large text, the new tab is out of the screen, and the row scrolls sideways.
-        let wineFridge = areaTab("Wine fridge")
-        var swipes = 0
-        while wineFridge.frame.maxX > app.frame.maxX && swipes < 6 {
-            app.scrollViews["area_tabs"].swipeLeft()
-            swipes += 1
-        }
-        wineFridge.tap()
-        wait(for: wineFridge, toBeSelected: true)
+        selectArea("Wine fridge")
         expect(app.staticTexts["No items yet"], "The new storage area is not empty")
         capture("my-fridge-new-area")
     }
@@ -421,8 +405,10 @@ final class InventoryScreensUITests: FridgeUITestCase {
         tab("Add food").tap()
         expect(app.textFields["field_name"], "The add form did not open")
 
-        // "Manage storage areas" of the form opens the storage areas in a sheet above the form.
-        scrollTo(app.buttons["field_area"], "The form has no storage area").tap()
+        // "Manage storage areas" of the form opens the storage areas in a sheet above the form. The empty form
+        // starts with the keyboard, which covers the storage area.
+        hideKeyboard()
+        scrollTo(element("field_area"), "The form has no storage area").tap()
         expect(app.buttons["manage_areas"], "The list of the storage areas has no Manage storage areas").tap()
         expect(app.navigationBars["Storage areas"], "The storage areas did not open above the form")
         app.buttons["add_area"].tap()
@@ -436,82 +422,15 @@ final class InventoryScreensUITests: FridgeUITestCase {
         // "Done" goes back to the form, and its list has the new storage area.
         app.buttons["storage_areas_done"].tap()
         waitToGo(app.navigationBars["Storage areas"], "The storage areas did not close")
-        scrollTo(app.buttons["field_area"], "The form has no storage area").tap()
+        scrollTo(element("field_area"), "The form has no storage area after the storage areas closed").tap()
         let cellar = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Cellar")).firstMatch
         expect(cellar, "The list of the form does not have the new storage area")
     }
-}
 
-// MARK: - Parts of My Fridge
-
-extension FridgeUITestCase {
-    /// A tab of the row of the storage areas of My Fridge, by its name: "All", "Fridge", "Freezer", or the name of
-    /// another storage area.
-    func areaTab(_ name: String) -> XCUIElement {
-        app.scrollViews["area_tabs"].buttons[name].firstMatch
-    }
-
-    /// The accessibility value of an element as text.
-    func value(of element: XCUIElement) -> String {
-        element.value as? String ?? ""
-    }
-
-    /// True when a chip that is a switch is on.
-    func isOn(_ element: XCUIElement) -> Bool {
-        value(of: element) == "1"
-    }
-
-    func wait(for element: XCUIElement, toBeSelected selected: Bool, timeout: TimeInterval = 10) {
-        let predicate = NSPredicate(format: "isSelected == %@", NSNumber(value: selected))
-        wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: timeout)
-    }
-
-    func wait(for element: XCUIElement, toHaveValue value: String, timeout: TimeInterval = 10) {
-        let predicate = NSPredicate(format: "value == %@", value)
-        wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: timeout)
-    }
-
-    func wait(for element: XCUIElement, toHaveValueWith part: String, timeout: TimeInterval = 10) {
-        let predicate = NSPredicate(format: "value CONTAINS %@", part)
-        wait(for: [expectation(for: predicate, evaluatedWith: element)], timeout: timeout)
-    }
-
-    /// Scrolls the screen down until the element is on it, and fails the test with the message when it does not
-    /// come. It is for an element above the part that shows: `scrollTo` scrolls the other way.
-    @discardableResult
-    func scrollBackTo(_ element: XCUIElement, _ message: String) -> XCUIElement {
-        var swipes = 0
-        while !(element.exists && element.isHittable) && swipes < 14 {
-            app.swipeDown(velocity: .slow)
-            swipes += 1
-        }
-        XCTAssertTrue(element.exists && element.isHittable, message)
-        return element
-    }
-
-    /// Closes the keyboard with the "Done" button above it.
-    func hideKeyboard() {
-        let done = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done")).firstMatch
-        if done.exists && done.isHittable {
-            done.tap()
-        }
-    }
-
-    /// Waits until an element is not on the screen, and fails the test with the message when it stays.
-    func waitToGo(_ element: XCUIElement, _ message: String, timeout: TimeInterval = 10) {
-        XCTAssertTrue(element.waitForNonExistence(timeout: timeout), message)
-    }
-
-    /// Replaces the text of a field.
-    func replaceText(of field: XCUIElement, with text: String) {
-        // A tap at the trailing end puts the cursor after the text, also in a field with its text at that end.
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
-        let old = field.value as? String ?? ""
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + text)
-    }
+    // MARK: Parts
 
     /// Closes the search field of My Fridge, with the button of the system.
-    func closeSearch() {
+    private func closeSearch() {
         for name in ["Close", "Cancel"] {
             let button = app.buttons[name].firstMatch
             if button.exists && button.isHittable {

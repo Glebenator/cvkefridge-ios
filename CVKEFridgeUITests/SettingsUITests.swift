@@ -17,8 +17,10 @@ final class SettingsUITests: FridgeUITestCase {
     /// Changes the switch. A tap on the middle of the row does not change a switch of a form, so the tap is on the
     /// switch itself.
     private func toggleReminders() {
+        // The switch is the first row. With the largest text, it is above the screen after a scroll to a later row.
+        scrollBackTo(reminderSwitch, "Settings has no switch for the reminders")
         let control = reminderSwitch.switches.firstMatch
-        (control.exists ? control : reminderSwitch).tap()
+        (control.exists ? scrollTo(control, "The switch is not on the screen") : reminderSwitch).tap()
     }
 
     /// The label of the element, with normal spaces. The time format of iOS has a narrow space before "AM".
@@ -70,8 +72,6 @@ final class SettingsUITests: FridgeUITestCase {
         capture("settings-reminders-on")
 
         // Off removes the settings of the reminder.
-        app.swipeDown(velocity: .fast)
-        app.swipeDown(velocity: .fast)
         toggleReminders()
         waitFor(reminderSwitch, value: "0", "Reminders did not go off")
         XCTAssertFalse(app.datePickers["reminders_time"].exists, "The time stays with reminders off")
