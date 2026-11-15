@@ -59,8 +59,17 @@ struct NoticeCard: View {
     private let kind: NoticeKind
     private let actionTitle: LocalizedStringKey?
     private let action: (() -> Void)?
+    private var onFocusChange: ((Bool) -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// The part of the card that has the focus of VoiceOver or Switch Control, or nil.
+    @AccessibilityFocusState private var focusedPart: Part?
+
+    /// The parts of the card that VoiceOver reads one at a time.
+    private enum Part: Hashable {
+        case text
+        case button
+    }
 
     init(
         _ text: LocalizedStringKey,
@@ -106,9 +115,11 @@ struct NoticeCard: View {
                     .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
             }
             .accessibilityElement(children: .combine)
+            .accessibilityFocused($focusedPart, equals: .text)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(.secondary(.compact))
+                    .accessibilityFocused($focusedPart, equals: .button)
             }
         }
         .padding(.leading, Space.s4 + 2)
@@ -117,6 +128,18 @@ struct NoticeCard: View {
         .frame(minHeight: 56)
         .floatingGlass(in: Radius.shape(Radius.extraLarge))
         .frame(maxWidth: Metrics.noticeMaxWidth)
+        .onChange(of: focusedPart != nil) { _, focused in
+            onFocusChange?(focused)
+        }
+    }
+
+    /// Calls `perform` with true when VoiceOver or Switch Control moves to the text or to the button of the card, and
+    /// with false when the focus leaves the card. The text and the button are two elements, so a focus state on the
+    /// card does not see them.
+    func onAccessibilityFocusChange(_ perform: @escaping (Bool) -> Void) -> NoticeCard {
+        var card = self
+        card.onFocusChange = perform
+        return card
     }
 }
 
