@@ -18,18 +18,23 @@ struct ReminderPlanTests {
         ReminderSettings(enabled: enabled, minuteOfDay: minuteOfDay, leadDays: leadDays, lastDate: lastDate)
     }
 
+    /// The plan at the `minute` of today in UTC, a time zone with no change of the clock.
     private func plan(
         _ inventory: Inventory,
         _ settings: ReminderSettings,
         now minute: Int = 8 * 60,
-        horizonDays: Int = ReminderPlan.defaultHorizonDays
+        horizonDays: Int? = nil,
+        maxReminders: Int = ReminderPlan.defaultMaxReminders
     ) -> [PlannedReminder] {
-        ReminderPlan.reminders(
+        let utc = TimeZone(identifier: "UTC")!
+        let now = ReminderSchedule.triggerAt(today, time: ReminderTime(minuteOfDay: minute)!, timeZone: utc)
+        return ReminderPlan.reminders(
             inventory: inventory,
             settings: settings,
-            today: today,
-            nowMinuteOfDay: minute,
-            horizonDays: horizonDays
+            now: now,
+            timeZone: utc,
+            horizonDays: horizonDays,
+            maxReminders: maxReminders
         )
     }
 
@@ -48,7 +53,7 @@ struct ReminderPlanTests {
     }
 
     @Test func aDateWithNothingToSayHasNoReminder() {
-        // No food, no expiry date, a batch that is used, and a batch that expires after the plan.
+        // No food, no expiry date, a batch that is used, and a batch that expires after a horizon of two weeks.
         #expect(plan(I.inventory(), settings()).isEmpty)
         let inventory = I.inventory(
             I.product("rice"),
@@ -59,7 +64,9 @@ struct ReminderPlanTests {
             .batchUsed(batchId: "b2", quantity: 1000, date: today),
             I.batch("b3", "jam", expires: "2027-03-01")
         )
-        #expect(plan(inventory, settings()).isEmpty)
+        #expect(plan(inventory, settings(), horizonDays: ReminderPlan.defaultHorizonDays).isEmpty)
+        // With no horizon, only the dates near the expiry date of jam have something to say.
+        #expect(dates(plan(inventory, settings())) == ["2027-02-27", "2027-02-28", "2027-03-01", "2027-03-02"])
     }
 
     @Test func aBatchThatExpiresInThePlanIsInTheRemindersFromTheLeadTimeToTheDayAfter() {
@@ -128,13 +135,44 @@ struct ReminderPlanTests {
         #expect(dates(ReminderPlan.reminders(inventory: inventory, settings: settings(at: 0), now: midnight, timeZone: berlin)) == ["2026-11-14"])
     }
 
-    @Test func thePlanHasTheDatesOfTheHorizon() {
+    @Test func aHorizonStopsThePlanAtItsLastDate() {
         // Today and 13 more dates: the last date is 25 November.
-        #expect(dates(plan(milk(expires: "2026-11-27"), settings())) == ["2026-11-25"])
-        #expect(plan(milk(expires: "2026-11-28"), settings()).isEmpty)
+        let twoWeeks = ReminderPlan.defaultHorizonDays
+        #expect(dates(plan(milk(expires: "2026-11-27"), settings(), horizonDays: twoWeeks)) == ["2026-11-25"])
+        #expect(plan(milk(expires: "2026-11-28"), settings(), horizonDays: twoWeeks).isEmpty)
         #expect(dates(plan(milk(expires: "2026-11-28"), settings(), horizonDays: 15)) == ["2026-11-26"])
         #expect(plan(milk(expires: "2026-11-12"), settings(), horizonDays: 0).isEmpty)
         #expect(dates(plan(milk(expires: "2026-11-12"), settings(), horizonDays: 1)) == ["2026-11-12"])
+    }
+
+    // A plan of 14 days left a food that expires in 30 days with no reminder when the app did not open.
+    @Test func thePlanGoesToTheDayAfterTheLatestExpiryDate() {
+        let reminders = plan(milk(expires: "2026-12-12"), settings())
+        #expect(dates(reminders) == ["2026-12-10", "2026-12-11", "2026-12-12", "2026-12-13"])
+        #expect(reminders.map { $0.foods.map(\.daysLeft) } == [[2], [1], [0], [-1]])
+        // A far expiry date has its reminders too.
+        #expect(dates(plan(milk(expires: "2031-01-01"), settings(leadDays: 0))) == ["2031-01-01", "2031-01-02"])
+    }
+
+    @Test func thePlanHasNotMoreThanTheLargestNumberOfRemindersTheEarliestFirst() {
+        // One batch that expires each fourth day: four reminders for each batch, 80 dates in all.
+        var bodies: [ChangeBody] = []
+        for index in 0..<20 {
+            let expires = today.plusDays(3 + index * 4)!.text
+            bodies.append(I.product("p\(index)"))
+            bodies.append(I.batch("b\(index)", "p\(index)", expires: expires))
+        }
+        let inventory = I.inventory(bodies)
+        let reminders = plan(inventory, settings())
+        #expect(reminders.count == ReminderPlan.defaultMaxReminders)
+        #expect(reminders.first?.date.text == "2026-11-13")
+        #expect(reminders.map(\.date) == reminders.map(\.date).sorted())
+        #expect(plan(inventory, settings(), maxReminders: 5).map(\.date) == Array(reminders.prefix(5)).map(\.date))
+        #expect(plan(inventory, settings(), maxReminders: 0).isEmpty)
+        // The same reminders as the rules give on each date.
+        for reminder in reminders {
+            #expect(reminder.foods == ReminderRules.foods(inventory, today: reminder.date, leadDays: 2))
+        }
     }
 
     @Test func eachReminderHasAllItsFoodsInTheOrderOfTheRules() {
@@ -171,6 +209,22 @@ struct ReminderPlanTests {
         // In Tokyo it is 16:30 on the same instant: the time of today passed.
         let tokyo = TimeZone(identifier: "Asia/Tokyo")!
         #expect(dates(ReminderPlan.reminders(inventory: inventory, settings: settings(), now: now, timeZone: tokyo)) == ["2026-11-13", "2026-11-14"])
+    }
+
+    // The minute of now cannot tell the two hours of an autumn change of the clock apart. The instant can.
+    @Test func inTheHourThatTheClockRepeatsTheReminderIsAtTheFirstTime() {
+        // Berlin goes from 03:00 back to 02:00 on 25 October 2026. 02:30 is 00:30 UTC and 01:30 UTC.
+        let inventory = milk(expires: "2026-10-26")
+        let settings = settings(at: 2 * 60 + 30)
+        // At the first 02:10 (00:10 UTC), the reminder of today is ahead.
+        let first = try! Date("2026-10-25T00:10:00Z", strategy: .iso8601)
+        let early = ReminderPlan.reminders(inventory: inventory, settings: settings, now: first, timeZone: berlin)
+        #expect(dates(early) == ["2026-10-25", "2026-10-26", "2026-10-27"])
+        #expect(early.first?.triggerAt(timeZone: berlin) == (try! Date("2026-10-25T00:30:00Z", strategy: .iso8601)))
+        // At the second 02:10 (01:10 UTC), the reminder at the first 02:30 has passed.
+        let second = try! Date("2026-10-25T01:10:00Z", strategy: .iso8601)
+        #expect(dates(ReminderPlan.reminders(inventory: inventory, settings: settings, now: second, timeZone: berlin))
+            == ["2026-10-26", "2026-10-27"])
     }
 
     @Test func aTimeThatTheClockSkipsIsLaterByTheGap() {
