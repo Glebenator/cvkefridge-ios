@@ -102,4 +102,28 @@ Each of these needs an ADR in the cvkefridge repository before the work is compl
 
 ## 7. Android defects that the iOS app does not copy
 
-The review of the Android app fills this section.
+The review of the Android app at `8ad4020` found these. "iOS" says what the iOS app does.
+
+| # | Android (file) | Defect | iOS |
+|---|---|---|---|
+| 1 | `ui/AddFoodScreen.kt:159`, `ui/FridgeApp.kt:166` | A scan of a barcode that the inventory has opens the form with quantity 1 and the last area. "Save and scan next" can save 1 g. | Such a scan gets the values of "Add again": the usual quantity, the newest area, and the storage hint. |
+| 2 | `data/ChangeLogStore.kt` | One line that cannot be decoded stops the whole app. Each append writes the whole file again. | Decode each line. Keep the lines that are good, keep the bad lines in the file, and say that some changes were not read. Append to the end of the file. |
+| 3 | `ui/EditScreens.kt:101`, `history/HistoryContent.kt:144` | A change of the unit does not convert the quantities: 500 g becomes 500 kg, also in History. | The edit form converts g and kg, and ml and l. For other pairs it asks before it saves and says that the numbers stay. (A unit on each history entry needs a spec change: not in this work.) |
+| 4 | `ui/FormParts.kt:316` | OK in the date picker makes an estimated date a printed date, with no change of the date. | The source changes only when the person selects a different date. |
+| 5 | `ui/FridgeViewModel.kt:641` | The last-used area counts an add that was undone. | Only adds that are in the inventory count. |
+| 6 | `ui/FoodDetailScreen.kt:586` | "Other date" of "Still good?" accepts a date before the expiry date or before today. | The picker starts after today and after the expiry date. |
+| 7 | `inventory/AddFoodForm.kt:70` | "Chicken soup" keeps the estimate of raw chicken after the person selected "Chicken". | The food of the name is calculated again when the name is different from the name and the aliases of the food. The form shows the food of the estimate. |
+| 8 | `inventory/AddAgain.kt:105` | The newest batch of two batches of one day is random. | The order of the `batchAdded` changes decides. |
+| 10 | `lookup/Barcodes.kt:45` | Eight typed digits can be EAN-8 or UPC-E, and the app selects EAN-8. | The lookup tries the inventory and the cache with the two forms before the network. |
+| 11 | `ui/InventoryContent.kt:154` | The search compares the internal keys (`g`, `pcs`), not the words on the screen. | The search compares the words on the screen, with no case and no accents. |
+| 12 | `ui/FridgeViewModel.kt:284` | A table of foods that cannot be read hides an inventory that was read. | The inventory stays. Only the estimates are missing. |
+| 13 | `MainActivity.kt:75` | Today is old after midnight or a change of the time zone while the app is open. | The app listens for the day change and the time zone change. |
+| 14 | `ui/AddFoodScreen.kt:205` | Two fast taps on Save can add two batches. Save does nothing while a photo is made. | The guard is synchronous. Save is off, with a reason, while the photo is made. |
+| 15 | `ui/FoodNote.kt:88`, `ui/EditScreens.kt` | No Undo for a removed note or an edit. A closed form drops its changes with no question. | Undo for the note and for edits. A changed form asks before it closes. |
+| 16 | `photo/PhotoStore.kt:71` | "Change photo" has no Undo. | Undo brings the earlier photo back. |
+| 19 | `inventory/QuantityText.kt` | "1.000" with a German locale is 1. | The quantity field uses the number format of the locale. |
+| 19 | `ui/FoodCard.kt` | A swipe ends the whole oldest batch at once. | The same, with Undo, as on Android. A full swipe gives a haptic. This is the agreed behaviour. |
+
+Not changed, because the shared specification must change first: more than one barcode for one product (9), and
+the language in the fields of the Open Food Facts request (17). The form starts in the storage area of the open tab
+of My Fridge (18), as the README of Android says.
