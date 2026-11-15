@@ -45,7 +45,11 @@ public enum Barcodes {
     /// The barcode in a text that the person typed. Spaces and hyphens have no effect, because packages print the
     /// digits in groups. A text of 8 digits is an EAN-8 when its check digit is correct for EAN-8, and else a UPC-E.
     public static func parseTyped(_ text: String) -> Typed {
-        guard let digits = typedDigits(text) else {
+        if text.unicodeScalars.contains(where: { !isDigit($0) && $0 != " " && $0 != "-" }) {
+            return .invalid(.notABarcode)
+        }
+        let digits = String(String.UnicodeScalarView(text.unicodeScalars.filter(isDigit)))
+        guard lengths.contains(digits.count) else {
             return .invalid(.notABarcode)
         }
         let barcode = digits.count == 8 ? (canonical(digits) ?? upcE(digits)) : canonical(digits)
@@ -55,37 +59,21 @@ public enum Barcodes {
         return .valid(barcode: barcode)
     }
 
-    /// Each barcode that a typed text can be, in the form of the app. The first is the barcode of `parseTyped`. The
-    /// list is empty when the text is not a barcode.
+    /// Each barcode that a typed text can be, in the form of the app, the barcode of `parseTyped` first. The list is
+    /// empty when the text is not a barcode.
     ///
-    /// A text of 8 digits can be a valid EAN-8 and a valid UPC-E at the same time. The digits do not say which of the
-    /// two is on the package, so the list then has the two barcodes: the EAN-8, and then the UPC-E. The lookup tries
-    /// the inventory and the cache with each of them before it uses the network. The Android app uses only the
-    /// EAN-8.
-    public static func typedForms(_ text: String) -> [String] {
-        guard let digits = typedDigits(text) else {
+    /// Eight digits can be a valid EAN-8 and also a valid UPC-E, and only the package tells which. The Android app
+    /// takes the EAN-8 and does not find the product of the UPC-E. The app looks for each barcode of the list in the
+    /// inventory and in the cache of the lookup, and asks the network only for the first.
+    public static func typedCandidates(_ text: String) -> [String] {
+        guard case .valid(let barcode) = parseTyped(text) else {
             return []
         }
-        if digits.count != 8 {
-            return canonical(digits).map { [$0] } ?? []
-        }
-        var forms: [String] = []
-        for form in [canonical(digits), upcE(digits)] {
-            if let form, !forms.contains(form) {
-                forms.append(form)
-            }
-        }
-        return forms
-    }
-
-    /// The digits of a typed text, or nil when the text has a different character than a digit, a space, or a
-    /// hyphen, or when the number of digits is not the number of a barcode.
-    private static func typedDigits(_ text: String) -> String? {
-        if text.unicodeScalars.contains(where: { !isDigit($0) && $0 != " " && $0 != "-" }) {
-            return nil
-        }
         let digits = String(String.UnicodeScalarView(text.unicodeScalars.filter(isDigit)))
-        return lengths.contains(digits.count) ? digits : nil
+        guard digits.count == 8, let other = upcE(digits), other != barcode else {
+            return [barcode]
+        }
+        return [barcode, other]
     }
 
     /// The barcode that the camera read, in the form of the app, or nil when its digits are not a valid barcode.

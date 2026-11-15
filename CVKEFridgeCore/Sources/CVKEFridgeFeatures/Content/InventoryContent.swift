@@ -258,7 +258,8 @@ public struct InventoryContent: Hashable, Sendable {
     }
 
     /// The rows and the counts for `filter`. The search text is compared with the name, the category, the unit, the
-    /// name of the storage area, and the note. Case has no effect.
+    /// name of the storage area, and the note. Case, accents, and the width of a character have no effect, so
+    /// "eclair" finds "Éclair".
     ///
     /// The Android app compares the search text with the key of the category and of the unit, for example "dairy".
     /// That works only in English. Give the words that the screen shows in `categoryLabel` and `unitLabel`. The
@@ -277,7 +278,7 @@ public struct InventoryContent: Hashable, Sendable {
                 return true
             }
             let words = [row.name, categoryLabel(row.category), row.unit.map(unitLabel), row.areaName, row.note]
-            return words.contains(where: { word in word?.range(of: text, options: .caseInsensitive) != nil })
+            return words.contains(where: { word in word.map { Self.matches($0, text) } ?? false })
         }
         // The counts of one filter are for the rows that agree with the search text and with the other filter.
         let withFreshness = found.filter { row in
@@ -298,6 +299,11 @@ public struct InventoryContent: Hashable, Sendable {
             expiredCount: withCategory.filter { $0.batchFreshness.contains(.expired) }.count,
             rows: withFreshness.filter { category == nil || $0.category == category }
         )
+    }
+
+    /// True when the `word` has the search `text` in it. Case, accents, and the width of a character have no effect.
+    static func matches(_ word: String, _ text: String) -> Bool {
+        word.range(of: text, options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive]) != nil
     }
 
     /// The content of the `inventory` for the date `today`. `sample` is true when a change in the log comes from the

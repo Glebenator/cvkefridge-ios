@@ -93,11 +93,90 @@ struct PhotoStoreTests {
         #expect(await store.restore(removed))
         #expect(await store.photos == ["milk": photo])
 
-        // When the message with "Undo" closed, the cleanup deletes the removed file.
+        // When the message with "Undo" closed, the app releases the removed file, and the cleanup deletes it.
         let again = try #require(try await store.remove(productId: "milk"))
+        await store.clean(productIds: ["milk"])
+        #expect(names() == ["milk.t1.jpg.removed"])
+        await store.release(again)
         await store.clean(productIds: ["milk"])
         #expect(names().isEmpty)
         #expect(!(await store.restore(again)))
+    }
+
+    // Correction of PhotoStore.kt: a read of the folder that failed gave an empty list of photos, and the next cleanup
+    // deleted each photo, because no product had a photo.
+    @Test func aFolderThatCannotBeReadIsNotEmptyAndTheCleanupWaitsForARead() async throws {
+        defer { folder.remove() }
+        try await store().save(productId: "milk", encode: bytes("photo"))
+        let store = store()
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: directory.path)
+        #expect(!(await store.read()))
+        #expect(await store.photos.isEmpty)
+        // The cleanup deletes nothing while the folder cannot be read.
+        await store.clean(productIds: ["milk"])
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
+        #expect(names() == ["milk.t1.jpg"])
+        // The next call reads the folder again. The cleanup then keeps the photo of milk.
+        await store.clean(productIds: ["milk"])
+        #expect(names() == ["milk.t1.jpg"])
+        #expect(await store.photos == ["milk": ProductPhoto(url: directory.appending(path: "milk.t1.jpg"))])
+        // A folder that is not there is an empty folder.
+        let empty = PhotoStore(directory: folder.url.appending(path: "none", directoryHint: .isDirectory))
+        #expect(await empty.read())
+    }
+
+    // Correction of PhotoStore.kt:71: "Change photo" deleted the earlier photo at once, so it had no Undo.
+    @Test func aChangedPhotoComesBackWithUndo() async throws {
+        defer { folder.remove() }
+        let store = store()
+        let first = try await store.save(productId: "milk", encode: bytes("first"))
+        let change = try await store.replace(productId: "milk", encode: bytes("second"))
+        #expect(change.earlier == RemovedPhoto(productId: "milk", fileName: "milk.t1.jpg.removed"))
+        #expect(await store.photos == ["milk": change.photo])
+        #expect(names() == ["milk.t1.jpg.removed", "milk.t2.jpg"])
+        // The cleanup of another message keeps the earlier photo, because its own message is still open.
+        await store.clean(productIds: ["milk"])
+        #expect(names() == ["milk.t1.jpg.removed", "milk.t2.jpg"])
+
+        #expect(await store.undo(change))
+        #expect(await store.photos == ["milk": first])
+        #expect(try text(first.url) == "first")
+        #expect(names() == ["milk.t1.jpg"])
+        #expect(!(await store.undo(change)))
+
+        // A change after the change keeps its photo. After the release, the cleanup deletes the earlier photo.
+        let second = try await store.replace(productId: "milk", encode: bytes("third"))
+        let third = try await store.replace(productId: "milk", encode: bytes("fourth"))
+        #expect(!(await store.undo(second)))
+        #expect(await store.photos == ["milk": third.photo])
+        await store.release(second)
+        await store.release(third)
+        await store.clean(productIds: ["milk"])
+        #expect(names() == ["milk.t4.jpg"])
+
+        // The first photo of a product: "Undo" removes it.
+        let eggs = try await store.replace(productId: "eggs", encode: bytes("eggs"))
+        #expect(eggs.earlier == nil)
+        #expect(await store.undo(eggs))
+        #expect(await store.photos["eggs"] == nil)
+        #expect(names() == ["milk.t4.jpg"])
+    }
+
+    // Correction of FridgeViewModel.kt:349: the cleanup of an earlier message deleted a removed photo that the "Undo"
+    // of a newer message still needed.
+    @Test func eachRemovedPhotoIsProtectedUntilItsOwnMessageCloses() async throws {
+        defer { folder.remove() }
+        let store = store()
+        try await store.save(productId: "milk", encode: bytes("milk"))
+        try await store.save(productId: "eggs", encode: bytes("eggs"))
+        let milk = try #require(try await store.remove(productId: "milk"))
+        let eggs = try #require(try await store.remove(productId: "eggs"))
+        // The message of milk closes. The cleanup must keep the removed photo of eggs.
+        await store.release(milk)
+        await store.clean(productIds: ["milk", "eggs"])
+        #expect(names() == ["eggs.t2.jpg.removed"])
+        #expect(await store.restore(eggs))
+        #expect(!(await store.restore(milk)))
     }
 
     @Test func anUndoDoesNotReplaceANewerPhoto() async throws {

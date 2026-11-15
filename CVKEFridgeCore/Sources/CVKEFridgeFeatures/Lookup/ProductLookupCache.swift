@@ -12,8 +12,8 @@ import Foundation
 /// cannot be read or written, the app continues without the cache.
 ///
 /// A file that is not there or that is damaged is an empty cache, and the next write replaces it. A file that the
-/// cache cannot read now, for example while the phone is locked, is not replaced: the cache reads it again at the
-/// next call.
+/// cache cannot read now for a different reason, for example while the phone is locked or when the folder has no
+/// permission, is not replaced: the cache keeps no value and reads it again at the next call.
 public actor ProductLookupCache {
     /// The largest number of products at the start.
     public static let defaultMaxSize = 1000
@@ -76,14 +76,15 @@ public actor ProductLookupCache {
         do {
             let data = try Data(contentsOf: file)
             loaded = (try? JSONDecoder().decode(CacheFile.self, from: data))?.products ?? []
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            loaded = []
         } catch {
-            if !FileManager.default.fileExists(atPath: file.path) {
-                loaded = []
-            } else {
+            // Only a file that is surely not there is an empty cache. Each other error, for example no permission for
+            // the file or its folder, is a file that cannot be read now. The cache then keeps no value and reads the
+            // file again at the next call. `FileManager.fileExists` is not a good test: it is also false when the
+            // folder cannot be read.
+            guard isMissingFileError(error) else {
                 return nil
             }
+            loaded = []
         }
         // A barcode that is in the file two times keeps its last product, in the place of that product.
         var seen = Set<String>()
@@ -114,6 +115,23 @@ public actor ProductLookupCache {
         try? url.setResourceValues(values)
         #endif
     }
+}
+
+/// True when the error of a file operation says that the file or the folder is not there. Each other error, for
+/// example no permission, is false: the file can be there.
+func isMissingFileError(_ error: any Error) -> Bool {
+    let error = error as NSError
+    if error.domain == NSCocoaErrorDomain
+        && (error.code == CocoaError.fileReadNoSuchFile.rawValue || error.code == CocoaError.fileNoSuchFile.rawValue) {
+        return true
+    }
+    if error.domain == NSPOSIXErrorDomain {
+        return error.code == Int(ENOENT)
+    }
+    if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+        return isMissingFileError(underlying)
+    }
+    return false
 }
 
 /// The JSON shape of the file: `{"products": [...]}`.

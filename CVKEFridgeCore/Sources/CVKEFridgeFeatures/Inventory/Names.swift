@@ -21,8 +21,44 @@ public enum Names {
     }
 
     /// True when the two texts are the same name. Case and extra spaces have no effect.
+    ///
+    /// The case rule is the rule of Kotlin `equals(ignoreCase = true)` on Android: each character is changed to upper
+    /// case and then to lower case before the compare (`key`). So the Greek "σ" and the final "ς" are the same, and
+    /// "İ" is the same as "i". Accents have an effect: "Eclair" is not "Éclair".
     public static func same(_ first: String, _ second: String) -> Bool {
-        clean(first).lowercased() == clean(second).lowercased()
+        key(first) == key(second)
+    }
+
+    /// The identity of a name: the cleaned name, with each character changed to upper case and then to lower case.
+    /// Two names are the same (`same`) when they have the same key. Use it, for example, as the key of a dictionary.
+    ///
+    /// The change of each character uses only its mapping to one character, as Kotlin does with `Char.uppercaseChar`.
+    /// A character that becomes more than one character in upper case, for example "ß", stays as it is.
+    public static func key(_ name: String) -> String {
+        var scalars = String.UnicodeScalarView()
+        for scalar in clean(name).unicodeScalars {
+            let upper = single(scalar.properties.uppercaseMapping) ?? scalar
+            scalars.append(lowercase(upper))
+        }
+        return String(scalars)
+    }
+
+    /// The lower case of one character, as `Char.lowercaseChar` of Kotlin. Swift gives the full mapping. It is the
+    /// mapping to one character for all characters but "İ" (U+0130), which has the full mapping "i" and a dot above.
+    private static func lowercase(_ scalar: Unicode.Scalar) -> Unicode.Scalar {
+        if scalar == "\u{0130}" {
+            return "i"
+        }
+        return single(scalar.properties.lowercaseMapping) ?? scalar
+    }
+
+    /// The scalar of a text that has exactly one scalar, or nil.
+    private static func single(_ text: String) -> Unicode.Scalar? {
+        let scalars = text.unicodeScalars
+        guard let first = scalars.first, scalars.index(after: scalars.startIndex) == scalars.endIndex else {
+            return nil
+        }
+        return first
     }
 
     /// The order of two names in a list: case and accents have no effect, so "Éclair" comes before "Zucchini".

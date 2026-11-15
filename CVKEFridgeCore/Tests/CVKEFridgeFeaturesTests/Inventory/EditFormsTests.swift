@@ -173,4 +173,20 @@ struct EditFormsTests {
         #expect(form.expiry == .chosen(date("2026-11-25")))
         #expect(form.action(batch: chosen, product: butter, areas: areas, foods: foods)?.expiry == chosen.expiry)
     }
+
+    // The form tells before the save what a new unit does to the numbers, so that it can ask the person.
+    @Test func theFormTellsWhatANewUnitDoesToTheQuantities() {
+        let inventory = Inventory.replay([
+            Change(id: "c0", at: 0, origin: "test", body: .productSaved(product: butter)),
+            Change(id: "c1", at: 1, origin: "test", body: .batchAdded(batch: batch(nil))),
+        ])
+        let form = ProductForm.of(butter)
+        #expect(form.unitChange(product: butter, inventory: inventory) == .unchanged)
+        #expect(changed(form) { $0.unit = .kg }.unitChange(product: butter, inventory: inventory) == .converts)
+        #expect(changed(form) { $0.unit = .pack }.unitChange(product: butter, inventory: inventory) == .keepsNumbers)
+        #expect(changed(form) { $0.unit = nil }.unitChange(product: butter, inventory: inventory) == .keepsNumbers)
+        // A product with no active batch has no number to keep.
+        let empty = Inventory.replay([Change(id: "c0", at: 0, origin: "test", body: .productSaved(product: butter))])
+        #expect(changed(form) { $0.unit = .pack }.unitChange(product: butter, inventory: empty) == .unchanged)
+    }
 }

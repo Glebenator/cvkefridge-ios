@@ -4,6 +4,9 @@ import Foundation
 // The Android file `app/src/main/java/com/cvke/fridge/inventory/InventoryAction.kt` in cvkefridge-android has the same
 // behaviour. `NoticeMessage` has no message for the test reminder of the Android debug build: the reminders of iOS
 // are different, and the app adds its own message for them.
+//
+// Corrections of the Android app: an edit of a product, of a batch, or of a note has a message with "Undo". A change
+// of the unit between g and kg, or between ml and l, converts the quantities of the active batches.
 
 /// One thing that the person does to the inventory. `InventoryActions.plan` makes its changes.
 public enum InventoryAction: Hashable, Sendable {
@@ -150,6 +153,16 @@ public enum NoticeMessage: Hashable, Sendable {
     case settingsNotSaved
     /// The person removed the photo of a product.
     case photoRemoved
+    /// The person replaced the photo of a product ("Change photo"). "Undo" brings the earlier photo back.
+    case photoChanged
+    /// The person saved the edit form of a product. `name` is the new name.
+    case productEdited(name: String)
+    /// The person saved the edit form of a batch of the food.
+    case batchEdited(name: String)
+    /// The person wrote or changed the note of the food.
+    case noteSaved(name: String)
+    /// The person removed the note of the food.
+    case noteRemoved(name: String)
     /// The picture that the person selected could not become a photo.
     case photoFailed
     /// The photo file could not be removed.
@@ -206,18 +219,23 @@ public enum InventoryActions {
         case .addFood(let add):
             return addFood(add, inventory: inventory, today: today, newId: newId, normalizeBarcode: normalizeBarcode)
         case .saveProduct(let save):
-            return .changes(Planned.Changes(bodies: [.productSaved(product: save.product)]))
+            return saveProduct(save.product, inventory: inventory)
         case .editBatch(let edit):
+            let name = inventory.batches.first(where: { $0.id == edit.batchId }).map { productName($0.productId, inventory) }
             return .changes(
-                Planned.Changes(bodies: [
-                    .batchEdited(
-                        batchId: edit.batchId,
-                        quantity: edit.quantity,
-                        storageAreaId: edit.storageAreaId,
-                        dateAdded: edit.dateAdded,
-                        expiry: edit.expiry
-                    ),
-                ])
+                Planned.Changes(
+                    bodies: [
+                        .batchEdited(
+                            batchId: edit.batchId,
+                            quantity: edit.quantity,
+                            storageAreaId: edit.storageAreaId,
+                            dateAdded: edit.dateAdded,
+                            expiry: edit.expiry
+                        ),
+                    ],
+                    message: .batchEdited(name: name ?? ""),
+                    undoable: true
+                )
             )
         case .take(let take):
             return self.take(take, inventory: inventory, today: today)
@@ -319,6 +337,40 @@ public enum InventoryActions {
         return .changes(Planned.Changes(bodies: bodies, message: .added(name: action.name), undoable: true))
     }
 
+    /// Saves the values of a product. A change of the unit between g and kg, or between ml and l, also converts the
+    /// quantity of each active batch of the product (`UnitConversion`), in the same changes, so that "Undo" gives
+    /// back the product and the batches as they were. For the other units, the numbers stay: the edit form asks the
+    /// person first (`ProductForm.unitChange`). The history keeps its numbers, because a history entry has no unit.
+    ///
+    /// A change of only the note has the message of the note.
+    private static func saveProduct(_ product: Product, inventory: Inventory) -> Planned {
+        let old = inventory.products.first(where: { $0.id == product.id })
+        var bodies: [ChangeBody] = [.productSaved(product: product)]
+        if let old, UnitConversion.change(from: old.unit, to: product.unit) == .converts {
+            for batch in inventory.activeBatches where batch.productId == product.id {
+                guard let quantity = UnitConversion.convert(batch.quantity, from: old.unit, to: product.unit) else {
+                    continue
+                }
+                bodies.append(
+                    .batchEdited(
+                        batchId: batch.id,
+                        quantity: quantity,
+                        storageAreaId: batch.storageAreaId,
+                        dateAdded: batch.dateAdded,
+                        expiry: batch.expiry
+                    )
+                )
+            }
+        }
+        let message: NoticeMessage
+        if let old, old.note != product.note, old.withNote(product.note) == product {
+            message = product.note == nil ? .noteRemoved(name: product.name) : .noteSaved(name: product.name)
+        } else {
+            message = .productEdited(name: product.name)
+        }
+        return .changes(Planned.Changes(bodies: bodies, message: message, undoable: true))
+    }
+
     private static func take(_ action: InventoryAction.Take, inventory: Inventory, today: CalendarDate) -> Planned {
         guard let product = inventory.products.first(where: { $0.id == action.productId }) else {
             return .refused(.unknownProduct)
@@ -407,5 +459,21 @@ public enum InventoryActions {
     /// The name of the product, or an empty text when the product is not there.
     private static func productName(_ productId: String, _ inventory: Inventory) -> String {
         inventory.products.first(where: { $0.id == productId })?.name ?? ""
+    }
+}
+
+private extension Product {
+    /// The product with a different note.
+    func withNote(_ note: String?) -> Product {
+        Product(
+            id: id,
+            name: name,
+            category: category,
+            unit: unit,
+            barcode: barcode,
+            foodId: foodId,
+            note: note,
+            storageText: storageText
+        )
     }
 }

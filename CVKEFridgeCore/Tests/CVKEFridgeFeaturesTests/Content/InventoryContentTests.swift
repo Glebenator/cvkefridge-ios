@@ -160,6 +160,41 @@ struct InventoryContentTests {
         #expect(content.filtered(FoodFilter(query: "cake")).rows.map(\.key) == ["jam/fridge"])
     }
 
+    // Correction of InventoryContent.kt:154: the search had an effect from accents. "eclair" did not find "Éclair".
+    @Test func theSearchHasNoEffectFromCaseOrAccents() {
+        let content = Self.content([
+            .productSaved(
+                product: Product(
+                    id: "eclair",
+                    name: "Éclair",
+                    category: .bakery,
+                    unit: .pcs,
+                    barcode: nil,
+                    foodId: nil,
+                    note: "Für Zoë"
+                )
+            ),
+            Self.product("rice", "Rice"),
+            Self.batch("b1", "eclair", "fridge", "2026-11-05", nil),
+            Self.batch("b2", "rice", "fridge", "2026-11-05", nil),
+        ])
+        func keys(_ query: String) -> [String] {
+            content.filtered(
+                FoodFilter(query: query),
+                categoryLabel: { $0 == .bakery ? "Bäckerei" : $0.rawValue },
+                unitLabel: { $0 == .pcs ? "Stück" : $0.rawValue }
+            ).rows.map(\.key)
+        }
+        #expect(keys("eclair") == ["eclair/fridge"])
+        #expect(keys("ÉCLAIR") == ["eclair/fridge"])
+        // The note and the words of the screen also.
+        #expect(keys("fur zoe") == ["eclair/fridge"])
+        #expect(keys("backerei") == ["eclair/fridge"])
+        // The two foods have the unit "pcs".
+        #expect(keys("STUCK") == ["eclair/fridge", "rice/fridge"])
+        #expect(keys("RICE") == ["rice/fridge"])
+    }
+
     @Test func filterIsForTheFreshnessOfEachBatchOfAFood() throws {
         func keys(_ freshness: Set<Freshness>, areaId: String? = nil) -> [String] {
             sample.filtered(FoodFilter(areaId: areaId, freshness: freshness)).rows.map(\.key)

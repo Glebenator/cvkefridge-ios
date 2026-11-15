@@ -27,6 +27,16 @@ public struct ProductForm: Hashable, Sendable {
         ProductForm(name: product.name, category: product.category, unit: product.unit, note: product.note ?? "")
     }
 
+    /// What a save of the form does to the quantities of the active batches of the product (see `UnitConversion`).
+    /// With `.keepsNumbers`, ask the person before the save: 500 g becomes 500 of the new unit. The result is
+    /// `.unchanged` when the unit stays or the product has no active batch.
+    public func unitChange(product: Product, inventory: Inventory) -> UnitChange {
+        guard inventory.activeBatches.contains(where: { $0.productId == product.id }) else {
+            return .unchanged
+        }
+        return UnitConversion.change(from: product.unit, to: unit)
+    }
+
     /// The problem of the name. Two products cannot have the same name, because the add form finds a product by its
     /// name.
     public func nameError(product: Product, products: [Product]) -> NameError? {
@@ -106,9 +116,23 @@ public struct BatchForm: Hashable, Sendable {
         )
     }
 
+    /// The form that shows the batch as it is, with the quantity in the number format of the `locale`
+    /// (`QuantityText.format(_:locale:)`).
+    public static func of(_ batch: Batch, locale: Locale) -> BatchForm {
+        BatchForm(
+            quantity: QuantityText.format(batch.quantity, locale: locale),
+            storageAreaId: batch.storageAreaId,
+            dateAdded: batch.dateAdded,
+            expiry: ExpiryInput.of(batch.expiry)
+        )
+    }
+
     /// The problem of the quantity, or nil.
-    public func quantityError() -> QuantityProblem? {
-        QuantityText.parse(quantity).problem
+    ///
+    /// - Parameter locale: The locale of the quantity text (`QuantityText.parse(_:locale:)`). Nil reads it as Android
+    ///   does (`QuantityText.parse(_:)`).
+    public func quantityError(locale: Locale? = nil) -> QuantityProblem? {
+        QuantityText.parse(quantity, optionalLocale: locale).problem
     }
 
     /// The estimated date that the form can use. A change of the storage area or of the date added gives a new
@@ -128,13 +152,16 @@ public struct BatchForm: Hashable, Sendable {
     }
 
     /// The action that saves the form, or nil when a field has a problem.
+    ///
+    /// - Parameter locale: The locale of the quantity text, as in `quantityError(locale:)`.
     public func action(
         batch: Batch,
         product: Product,
         areas: [StorageArea],
-        foods: FoodTable
+        foods: FoodTable,
+        locale: Locale? = nil
     ) -> InventoryAction.EditBatch? {
-        guard let typed = QuantityText.parse(quantity).thousandths,
+        guard let typed = QuantityText.parse(quantity, optionalLocale: locale).thousandths,
               areas.contains(where: { $0.id == storageAreaId })
         else {
             return nil

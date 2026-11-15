@@ -152,4 +152,26 @@ struct ProductLookupTests {
         #expect(await locked.get("3017620422003") == nutella)
         #expect(await cache(file).get("3017620422003") == nutella)
     }
+
+    // Only a file that is surely not there is an empty cache. A folder that cannot be read made `fileExists` false, so
+    // the cache kept an empty list in memory and the next write replaced the file.
+    @Test func aFolderThatCannotBeReadIsNotAnEmptyCache() async throws {
+        let folder = try ScratchFolder()
+        defer { folder.remove() }
+        let inner = folder.url.appending(path: "cache", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: inner, withIntermediateDirectories: true)
+        let file = inner.appending(path: "lookups.json", directoryHint: .notDirectory)
+        await cache(file).put("3017620422003", nutella)
+        // The folder is there, but nothing can open it.
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: inner.path)
+        let locked = cache(file)
+        #expect(await locked.get("3017620422003") == nil)
+        await locked.put("5449000000996", cola)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: inner.path)
+        // The cache did not keep an empty list: it reads the file now, and the next write keeps its products.
+        #expect(await locked.get("3017620422003") == nutella)
+        await locked.put("5449000000996", cola)
+        #expect(await cache(file).get("3017620422003") == nutella)
+        #expect(await cache(file).get("5449000000996") == cola)
+    }
 }

@@ -109,17 +109,20 @@ struct BarcodesTests {
         #expect(typed("0000123456784") == "0000123456784")
     }
 
-    // Correction of Barcodes.kt:45: eight typed digits can be an EAN-8 and a UPC-E at the same time.
-    @Test func eightTypedDigitsThatCanBeTwoBarcodesGiveTheTwoForms() {
-        #expect(Barcodes.typedForms("0123 4565") == ["01234565", "0012345000065"])
-        // The first form is the barcode of `parseTyped`.
-        #expect(typed("01234565") == "01234565")
-        // Only an EAN-8, and only a UPC-E.
-        #expect(Barcodes.typedForms("96385074") == ["96385074"])
-        #expect(Barcodes.typedForms("04252614") == ["0042100005264"])
-        // A text with a different number of digits has one form, and a text that is not a barcode has none.
-        #expect(Barcodes.typedForms("036000291452") == ["0036000291452"])
-        #expect(Barcodes.typedForms("96385075") == [])
-        #expect(Barcodes.typedForms("12a") == [])
+    // Correction of Barcodes.kt:45: eight typed digits that are a valid EAN-8 and a valid UPC-E gave only the EAN-8.
+    @Test func eightDigitsCanBeAnEan8AndAUpcE() {
+        // "01234565" is a valid EAN-8, and as a UPC-E it is the UPC-A 012345000065.
+        #expect(Barcodes.typedCandidates("0123 4565") == ["01234565", "0012345000065"])
+        #expect(Barcodes.typedCandidates("01234602") == ["01234602", "0012000003462"])
+        // The barcode of `parseTyped` stays the first.
+        #expect(Barcodes.parseTyped("01234565") == .valid(barcode: "01234565"))
+        // Only a UPC-E, only an EAN-8, and the two forms that give the same barcode.
+        #expect(Barcodes.typedCandidates("04252614") == ["0042100005264"])
+        #expect(Barcodes.typedCandidates("96385074") == ["96385074"])
+        #expect(Barcodes.typedCandidates("00000055") == ["00000055"])
+        // The other lengths have one barcode, and a text that is not a barcode has none.
+        #expect(Barcodes.typedCandidates("3017620422003") == ["3017620422003"])
+        #expect(Barcodes.typedCandidates("3017620422004").isEmpty)
+        #expect(Barcodes.typedCandidates("milk").isEmpty)
     }
 }
