@@ -666,10 +666,15 @@ final class FridgeModel {
     /// Deletes the photos of the products that are not in the inventory, and the files that no photo needs. The
     /// photos of the products that the "Undo" of a message on the screen can bring back stay: the cleanup reads the
     /// protections when it runs. The photo service keeps the removed and the changed photos until their release.
+    ///
+    /// When the model did not read some lines of the change log, the cleanup deletes nothing. A line that the app did
+    /// not read can have a product, and a later version of the app can read the line. The photo of that product
+    /// must stay until then.
     private func cleanPhotos() async {
-        guard let inventory = loaded?.inventory else {
+        guard let loaded, loaded.skippedChanges == 0 else {
             return
         }
+        let inventory = loaded.inventory
         var productIds = Set(inventory.products.map(\.id))
         for case .products(let deleted) in photoProtections.values {
             productIds.formUnion(deleted)
