@@ -83,20 +83,18 @@ final class ShellUITests: FridgeUITestCase {
         // A count of Home opens My Fridge with all storage areas.
         expect(app.buttons["metric_expired"], "Home does not show the expired food").tap()
         expect(app.navigationBars["My Fridge"], "My Fridge did not open")
-        let area = app.buttons["area_picker"]
-        XCTAssertTrue(area.label.hasSuffix("All"), "The count of Home did not show all storage areas: \(area.label)")
+        XCTAssertTrue(areaTab("All").isSelected, "The count of Home did not show all storage areas")
 
         // A tap on the selected tab starts My Fridge again: the Fridge, with no filter.
         tab("My Fridge").tap()
-        let fridge = NSPredicate(format: "label ENDSWITH %@", "Fridge")
-        wait(for: [expectation(for: fridge, evaluatedWith: area)], timeout: 10)
+        wait(for: areaTab("Fridge"), toBeSelected: true)
 
         // A food opens in the stack of the tab, and a tap on the tab goes back to the first screen.
-        scrollTo(app.buttons["food_sample-cheddar"], "My Fridge does not show the food").tap()
+        scrollTo(app.buttons["food_sample-cheddar/fridge"], "My Fridge does not show the food").tap()
         expect(app.staticTexts["food_name"], "The food did not open")
         capture("shell-food")
         tab("My Fridge").tap()
-        expect(app.buttons["area_picker"], "The tab did not go back to its first screen")
+        expect(areaTab("Fridge"), "The tab did not go back to its first screen")
     }
 
     func test5TheMessageShowsAboveASheetAndAChangedFormAsksBeforeItCloses() throws {
@@ -138,7 +136,7 @@ final class ShellUITests: FridgeUITestCase {
         name.typeText("Pear")
         app.buttons["save"].tap()
         expect(app.staticTexts["Pear added"], "The message of the add did not show")
-        expect(app.buttons["area_picker"], "The form and the scanner did not close")
+        expect(areaTab("Fridge"), "The form and the scanner did not close")
         XCTAssertFalse(app.buttons["scan_add_by_hand"].exists, "The scanner stayed open after Save")
     }
 }
