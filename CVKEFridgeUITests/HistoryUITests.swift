@@ -38,8 +38,11 @@ final class HistoryUITests: FridgeUITestCase {
         XCTAssertEqual(element("summary_thrown_away").label, "1 batch thrown away, 200 g")
         XCTAssertEqual(element("most_thrown_away_t-cheese").label, "Cheese, 1 batch")
 
-        // VoiceOver reads each entry as one item with its outcome and its day. The newest entry is first.
+        // VoiceOver reads each entry as one item with its outcome and its day. The newest entry is first. With large
+        // text, the list makes its rows when they come on the screen.
+        scrollTo(element("history_day_2026-11-14"), "History has no header for today")
         XCTAssertEqual(element("history_day_2026-11-14").label, "Today")
+        scrollTo(element("history_\(milk)"), "History does not show the used entry")
         XCTAssertEqual(element("history_\(milk)").label, "Milk, 2 l, Used, Today")
         XCTAssertEqual(element("history_\(cheese)").label, "Cheese, 200 g, Thrown away, Today")
         XCTAssertLessThan(element("history_\(cheese)").frame.minY, element("history_\(milk)").frame.minY)
@@ -54,10 +57,10 @@ final class HistoryUITests: FridgeUITestCase {
         XCTAssertTrue(element("history_\(milk)").waitForNonExistence(timeout: 5), "Thrown away shows a used entry")
         XCTAssertTrue(element("history_\(cheese)").exists)
         filter.buttons["All"].tap()
-        expect(element("history_\(milk)"), "All does not show the used entry")
+        expect(element("history_\(cheese)"), "All does not show the thrown-away entry")
 
         // A tap on an entry opens the screen of the food.
-        element("history_\(milk)").tap()
+        scrollTo(element("history_\(milk)"), "All does not show the used entry").tap()
         expect(app.staticTexts["food_name"], "The entry did not open the food")
         XCTAssertEqual(app.staticTexts["food_name"].label, "Milk")
     }
@@ -82,6 +85,7 @@ final class HistoryUITests: FridgeUITestCase {
         XCTAssertFalse(element("summary_none").exists)
 
         // A day that is not today or yesterday has the full date.
+        scrollTo(element("history_day_2026-10-05"), "History has no header for the day")
         XCTAssertEqual(element("history_day_2026-10-05").label, "Monday, October 5, 2026")
 
         // A filter with no entry says so.
@@ -104,7 +108,7 @@ final class HistoryUITests: FridgeUITestCase {
         openHistory()
 
         // The plus button at the end of the entry opens the add form with the product.
-        let entry = expect(element("history_t-change-5"), "History does not show the thrown-away entry")
+        let entry = scrollTo(element("history_t-change-5"), "History does not show the thrown-away entry")
         entry.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -22, dy: 0)).tap()
         let name = expect(app.textFields["field_name"], "Add again did not open the add form")
         XCTAssertEqual(name.value as? String, "Yoghurt")
@@ -117,9 +121,8 @@ final class HistoryUITests: FridgeUITestCase {
         XCTAssertTrue(element("history_t-change-5").exists)
 
         // A swipe to the right on an entry has "Add again" also.
-        let older = element("history_t-change-4")
-        older.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: older.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+        entry.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: entry.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
         expect(app.buttons["Add again"], "The swipe has no Add again").tap()
         expect(app.textFields["field_name"], "The swipe did not open the add form")
     }
@@ -133,11 +136,21 @@ final class HistoryUITests: FridgeUITestCase {
 
         // The filter stays below the navigation bar while the list scrolls.
         let filter = app.segmentedControls["history_filter"]
-        app.swipeUp(velocity: .slow)
+        var swipes = 0
+        while !(filter.exists && filter.frame.minY < app.frame.height / 3) && swipes < 10 {
+            app.swipeUp(velocity: .slow)
+            swipes += 1
+        }
         app.swipeUp(velocity: .slow)
         XCTAssertTrue(filter.isHittable, "The filter scrolled away")
         XCTAssertLessThan(filter.frame.minY, app.frame.height / 3, "The filter is not at the top")
         capture("history-sample-scrolled")
+
+        // On a wide screen the content is not wider than the content width, and the filter stays.
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        expect(filter, "The filter is not there after the rotation")
+        capture("history-sample-landscape")
     }
 
     // MARK: - Helpers
