@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import CVKEFridgeFeatures
 
@@ -460,8 +461,8 @@ struct AddFoodFormTests {
         #expect(FoodSuggestions.find("b", products: products, foods: foods) == [])
     }
 
-    /// A change log with milk in the pantry: two batches of 2 l and one newer batch of 1 l.
-    private var milkInventory: Inventory {
+    /// A change log with milk: two batches of 2 l in the fridge, and one newer batch of 1 l in the pantry.
+    private var milkChanges: [Change] {
         func batch(_ id: String, _ quantity: Int, _ area: String, _ added: String) -> ChangeBody {
             .batchAdded(
                 batch: Batch(id: id, productId: milk.id, quantity: quantity, storageAreaId: area, dateAdded: date(added), expiry: nil)
@@ -474,7 +475,11 @@ struct AddFoodFormTests {
             batch("b-2", 2_000, "fridge", "2026-11-03"),
             batch("b-3", 1_000, pantry.id, "2026-11-05"),
         ]
-        return Inventory.replay(bodies.enumerated().map { Change(id: "c-\($0.offset)", at: $0.offset, origin: "phone", body: $0.element) })
+        return bodies.enumerated().map { Change(id: "c-\($0.offset)", at: $0.offset, origin: "phone", body: $0.element) }
+    }
+
+    private var milkInventory: Inventory {
+        Inventory.replay(milkChanges)
     }
 
     private func start(productId: String? = nil, openAreaId: String? = nil, scan: Scanned? = nil, again: Bool = false) -> AddFoodForm {
@@ -484,9 +489,10 @@ struct AddFoodFormTests {
             scan: scan,
             again: again,
             inventory: milkInventory,
+            changes: milkChanges,
             foods: foods,
             lastAreaId: "freezer",
-            decimalSeparator: ","
+            locale: Locale(identifier: "de_DE")
         )
     }
 
@@ -502,7 +508,7 @@ struct AddFoodFormTests {
             storageKind: .fridge,
             storageText: "Keep cold"
         )
-        let form = AddFoodForm.scanned(scan, storageAreaId: "freezer", decimalSeparator: ".")
+        let form = AddFoodForm.scanned(scan, storageAreaId: "freezer", locale: Locale(identifier: "en_US"))
         #expect(
             form == AddFoodForm.scanned(
                 barcode: "3017620422003",
@@ -524,7 +530,8 @@ struct AddFoodFormTests {
         #expect(start(openAreaId: pantry.id) == AddFoodForm(storageAreaId: "freezer"))
         let noLast = AddFoodForm.start(
             productId: nil, openAreaId: pantry.id, scan: nil, again: false,
-            inventory: milkInventory, foods: foods, lastAreaId: nil, decimalSeparator: "."
+            inventory: milkInventory, changes: milkChanges, foods: foods, lastAreaId: nil,
+            locale: Locale(identifier: "en_US")
         )
         #expect(noLast == AddFoodForm(storageAreaId: pantry.id))
     }
