@@ -81,12 +81,6 @@ struct FormSheet<Content: View, Actions: View>: View {
             }
         }
         .accessibilityIdentifier(identifier)
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-            FormSheetKeyboard.measureToolbar()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in
-            FormSheetKeyboard.keyboardClosed()
-        }
         .interactiveDismissDisabled(hasChanges)
         // A swipe down on a changed form asks the same question as the close button. A form with no change closes.
         .background {
@@ -213,64 +207,6 @@ enum FormSheetKeyboard {
     /// Closes the keyboard.
     static func hide() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-
-    /// The field that has the keyboard, while `measureToolbar()` finds it.
-    private static weak var firstResponder: UIResponder?
-
-    /// Makes the system measure the bar with "Done" above the keyboard again.
-    ///
-    /// When a field gets the keyboard, the safe area of the sheet first has a bar above the keyboard that is 34
-    /// points too low, so the buttons of the form are partly below "Done". The system corrects the safe area at the
-    /// first change of the keyboard, for example the first key. A load of the input views of the field after the
-    /// keyboard shows gives that correction at once. It does not change the field or its text.
-    ///
-    /// A sheet that closes does not get the load: its field would keep the keyboard open above the screen below. Each
-    /// field gets one load while the keyboard is open, because the load shows the keyboard again.
-    static func measureToolbar() {
-        firstResponder = nil
-        UIApplication.shared.sendAction(#selector(UIResponder.cvkeFindFirstResponder(_:)), to: nil, from: nil, for: nil)
-        defer { firstResponder = nil }
-        guard let field = firstResponder as? UIView, field !== measuredField, field.window != nil, !isClosing(field) else {
-            return
-        }
-        measuredField = field
-        field.reloadInputViews()
-    }
-
-    /// The keyboard closed. The next field that gets the keyboard gets a load again.
-    static func keyboardClosed() {
-        measuredField = nil
-    }
-
-    /// The field that got the last load.
-    private static weak var measuredField: UIView?
-
-    /// True when the presentation that shows the view closes, or a presentation below it closes.
-    private static func isClosing(_ view: UIView) -> Bool {
-        var responder: UIResponder? = view
-        while let next = responder, !(next is UIViewController) {
-            responder = next.next
-        }
-        var controller = responder as? UIViewController
-        while let current = controller {
-            if current.isBeingDismissed || current.isMovingFromParent {
-                return true
-            }
-            controller = current.parent ?? current.presentingViewController
-        }
-        return false
-    }
-
-    fileprivate static func found(_ responder: UIResponder) {
-        firstResponder = responder
-    }
-}
-
-extension UIResponder {
-    /// The action that `FormSheetKeyboard` sends to the first responder to find it.
-    @objc fileprivate func cvkeFindFirstResponder(_ sender: Any?) {
-        FormSheetKeyboard.found(self)
     }
 }
 
