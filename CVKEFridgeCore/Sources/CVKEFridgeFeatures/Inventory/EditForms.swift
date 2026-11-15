@@ -106,9 +106,23 @@ public struct BatchForm: Hashable, Sendable {
         )
     }
 
+    /// The form that shows the batch as it is, with the quantity in the number format of the `locale`
+    /// (`QuantityText.format(_:locale:)`).
+    public static func of(_ batch: Batch, locale: Locale) -> BatchForm {
+        BatchForm(
+            quantity: QuantityText.format(batch.quantity, locale: locale),
+            storageAreaId: batch.storageAreaId,
+            dateAdded: batch.dateAdded,
+            expiry: ExpiryInput.of(batch.expiry)
+        )
+    }
+
     /// The problem of the quantity, or nil.
-    public func quantityError() -> QuantityProblem? {
-        QuantityText.parse(quantity).problem
+    ///
+    /// - Parameter locale: The locale of the quantity text (`QuantityText.parse(_:locale:)`). Nil reads it as Android
+    ///   does (`QuantityText.parse(_:)`).
+    public func quantityError(locale: Locale? = nil) -> QuantityProblem? {
+        QuantityText.parse(quantity, optionalLocale: locale).problem
     }
 
     /// The estimated date that the form can use. A change of the storage area or of the date added gives a new
@@ -128,13 +142,16 @@ public struct BatchForm: Hashable, Sendable {
     }
 
     /// The action that saves the form, or nil when a field has a problem.
+    ///
+    /// - Parameter locale: The locale of the quantity text, as in `quantityError(locale:)`.
     public func action(
         batch: Batch,
         product: Product,
         areas: [StorageArea],
-        foods: FoodTable
+        foods: FoodTable,
+        locale: Locale? = nil
     ) -> InventoryAction.EditBatch? {
-        guard let typed = QuantityText.parse(quantity).thousandths,
+        guard let typed = QuantityText.parse(quantity, optionalLocale: locale).thousandths,
               areas.contains(where: { $0.id == storageAreaId })
         else {
             return nil

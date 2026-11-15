@@ -225,20 +225,26 @@ public struct AddFoodForm: Hashable, Sendable {
     }
 
     /// The problem of the quantity, or nil.
-    public func quantityError() -> QuantityProblem? {
-        QuantityText.parse(quantity).problem
+    ///
+    /// - Parameter locale: The locale of the quantity text (`QuantityText.parse(_:locale:)`). Nil reads it as Android
+    ///   does (`QuantityText.parse(_:)`).
+    public func quantityError(locale: Locale? = nil) -> QuantityProblem? {
+        QuantityText.parse(quantity, optionalLocale: locale).problem
     }
 
     /// The action that saves the form, or nil when a field has a problem. The note of a new product is the cleaned
     /// text of the note field (`Notes.clean`). For a product in the inventory, a note replaces its note, and an empty
     /// note field keeps its note: the add form does not remove a note.
+    ///
+    /// - Parameter locale: The locale of the quantity text, as in `quantityError(locale:)`.
     public func action(
         products: [Product],
         areas: [StorageArea],
         foods: FoodTable,
-        today: CalendarDate
+        today: CalendarDate,
+        locale: Locale? = nil
     ) -> InventoryAction.AddFood? {
-        guard let quantity = QuantityText.parse(quantity).thousandths, nameError() == nil,
+        guard let quantity = QuantityText.parse(quantity, optionalLocale: locale).thousandths, nameError() == nil,
               areas.contains(where: { $0.id == storageAreaId })
         else {
             return nil

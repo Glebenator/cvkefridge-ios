@@ -13,6 +13,29 @@ struct NamesTests {
         #expect(!Names.same("Milk", "Silk"))
     }
 
+    // Kotlin `equals(ignoreCase = true)` changes each character to upper case and then to lower case. Swift
+    // `lowercased()` does not make "Σ" and the final "ς" the same.
+    @Test func theSameNameHasTheCaseRuleOfKotlin() {
+        #expect(Names.same("ΟΔΟΣ", "οδος"))
+        #expect(Names.same("οδοσ", "οδος"))
+        #expect(Names.same("İstanbul", "istanbul"))
+        #expect(Names.same("ÆBLE", "æble"))
+        #expect(Names.same("\u{01C5}emal", "\u{01C6}EMAL"))
+        #expect(Names.same("Straße", "STRAẞE"))
+        // A character that has more than one character in upper case is not the same as those characters.
+        #expect(!Names.same("Straße", "STRASSE"))
+        // Accents have an effect on the name, but not on the order.
+        #expect(!Names.same("Éclair", "Eclair"))
+        #expect(Names.order("Éclair", "eclair") == .orderedSame)
+        // A decomposed accent is the same as the composed accent.
+        #expect(Names.same("Cre\u{0300}me", "CRÈME"))
+        #expect(Names.key(" Whole   MILK ") == "whole milk")
+        // The forms find a product and a food with this rule.
+        let food = Food(id: "f", name: "Οδος", subtitle: nil, category: .other, keywords: [], days: [:], aliases: ["σκορδοσ"])
+        #expect(FoodSuggestions.onlyFoodNamed("ΣΚΟΡΔΟΣ", foods: FoodTable(foods: [food]))?.id == "f")
+        #expect(FoodSuggestions.onlyFoodNamed("σκορδος", foods: FoodTable(foods: [food]))?.id == "f")
+    }
+
     @Test func theOrderOfNamesHasNoEffectFromCaseOrAccents() {
         #expect(Names.order("apple", "Banana") == .orderedAscending)
         #expect(Names.order("Banana", "apple") == .orderedDescending)

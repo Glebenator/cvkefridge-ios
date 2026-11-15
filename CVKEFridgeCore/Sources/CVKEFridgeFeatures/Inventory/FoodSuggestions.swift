@@ -195,8 +195,9 @@ public enum FoodSuggestions {
     /// The food with this name, when exactly one food of the table has it as its name or as an alias. Case has no
     /// effect. "Yoghurt" gets the food "Yogurt".
     public static func onlyFoodNamed(_ name: String, foods: FoodTable) -> Food? {
-        let text = Names.clean(name).lowercased()
-        let found = foods.foods.filter { Names.same($0.name, name) || $0.aliases.contains(text) }
+        let found = foods.foods.filter { food in
+            Names.same(food.name, name) || food.aliases.contains(where: { Names.same($0, name) })
+        }
         return found.count == 1 ? found[0] : nil
     }
 
