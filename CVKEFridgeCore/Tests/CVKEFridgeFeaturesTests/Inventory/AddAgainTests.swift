@@ -118,6 +118,51 @@ struct AddAgainTests {
         #expect(AddAgain.shown(recent, hidden: hidden).map(\.id) == ["milk", "tea", "jam"])
     }
 
+    // Correction of AddAgain.kt:105: the newest of two batches of one day was the batch with the larger random
+    // identifier. The order of the `batchAdded` changes decides.
+    @Test func theNewestOfTwoBatchesOfOneDayIsTheLaterAdd() {
+        let log = Self.log([
+            Self.product("jam", "Jam", nil),
+            Self.batch("z-first", "jam", 500, "freezer", "2026-11-01"),
+            Self.batch("a-second", "jam", 250, "fridge", "2026-11-01"),
+        ])
+        let inventory = Inventory.replay(log)
+        #expect(AddAgain.values(inventory: inventory, productId: "jam", changes: log)
+            == AgainValues(storageAreaId: "fridge", quantity: 250))
+        // The order of the list has no effect: the instant decides.
+        #expect(AddAgain.values(inventory: inventory, productId: "jam", changes: log.reversed())
+            == AgainValues(storageAreaId: "fridge", quantity: 250))
+        // With the same instant, the place in the log decides.
+        let sameInstant = log.map { Change(id: $0.id, at: 7, origin: $0.origin, body: $0.body) }
+        #expect(AddAgain.values(inventory: inventory, productId: "jam", changes: sameInstant).storageAreaId == "fridge")
+        // With no changes, the larger identifier is the newest, as on Android.
+        #expect(AddAgain.values(inventory: inventory, productId: "jam") == AgainValues(storageAreaId: "freezer", quantity: 500))
+        // A later date added comes first in all cases.
+        let later = Self.log([
+            Self.product("jam", "Jam", nil),
+            Self.batch("b-new", "jam", 500, "freezer", "2026-11-02"),
+            Self.batch("a-old", "jam", 250, "fridge", "2026-11-01"),
+        ])
+        #expect(AddAgain.values(inventory: Inventory.replay(later), productId: "jam", changes: later).storageAreaId == "freezer")
+    }
+
+    // Correction of AddAgain.kt:96: the removal kept the instant of the clock, so a food stayed in the list after the
+    // clock went back. The removal now keeps the identifier of the newest change of the food.
+    @Test func aRemovedFoodStaysRemovedUntilItHasANewerChange() throws {
+        let recent = AddAgain.recent(changes: inventoryLog, inventory: inventory)
+        let soup = try #require(recent.first(where: { $0.product.id == "soup" }))
+        #expect(soup.changeId == "c20")
+        // The clock went back a long time: the instant of now has no effect.
+        let settings = RecentSettings().hiding(soup, now: -5_000)
+        #expect(settings.hiddenChanges == ["soup": "c20"])
+        #expect(settings.hidden.isEmpty)
+        #expect(AddAgain.shown(recent, settings: settings).map(\.id) == ["milk", "tea", "jam"])
+        // A newer change of soup, also with an older instant, shows it again.
+        let used = inventoryLog + [Change(id: "c99", at: 50, origin: "test", body: .batchUsed(batchId: "s1", quantity: 1, date: today))]
+        let after = AddAgain.recent(changes: used, inventory: Inventory.replay(used))
+        #expect(AddAgain.shown(after, settings: settings).map(\.id).contains("soup"))
+    }
+
     @Test func anAddThatWasUndoneDoesNotCount() {
         let log = Self.log([
             Self.product("jam", "Jam", nil),

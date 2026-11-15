@@ -18,14 +18,16 @@ public struct AgainValues: Hashable, Sendable {
 }
 
 /// A product of the list of recent foods. `at` is the instant of the last add, use, or throw away of the product, in
-/// milliseconds from 1970-01-01T00:00:00Z.
+/// milliseconds from 1970-01-01T00:00:00Z. `changeId` is the identifier of that change, or nil when it is not known.
 public struct RecentFood: Hashable, Sendable {
     public let product: Product
     public let at: Int
+    public let changeId: String?
 
-    public init(product: Product, at: Int) {
+    public init(product: Product, at: Int, changeId: String? = nil) {
         self.product = product
         self.at = at
+        self.changeId = changeId
     }
 }
 
@@ -43,7 +45,11 @@ public enum AddAgain {
     private static let recentKept = 30
 
     /// The start values for a new batch of the product.
-    public static func values(inventory: Inventory, productId: String) -> AgainValues {
+    ///
+    /// - Parameter changes: The change log of the `inventory`. The order of its `batchAdded` changes decides which of
+    ///   two batches of one date added is newer. With no change of a batch, the larger identifier is newer. The
+    ///   Android app uses only the identifier, which is random, so the "newest" batch of one day was random.
+    public static func values(inventory: Inventory, productId: String, changes: [Change] = []) -> AgainValues {
         let batches = inventory.batches.filter { $0.productId == productId }
         if batches.isEmpty {
             return AgainValues(storageAreaId: nil, quantity: nil)
@@ -53,7 +59,8 @@ public enum AddAgain {
         for entry in inventory.history {
             taken[entry.batchId, default: 0] += entry.quantity
         }
-        let newestFirst = batches.sorted(by: isNewer)
+        let order = addOrder(changes)
+        let newestFirst = batches.sorted(by: { isNewer($0, $1, order: order) })
         let newestArea = newestFirst[0].storageAreaId
         return AgainValues(
             storageAreaId: areas.contains(newestArea) ? newestArea : nil,
@@ -92,7 +99,8 @@ public enum AddAgain {
         for product in inventory.products {
             products[product.id] = product
         }
-        var last: [String: Int] = [:]
+        // The last change of each product. With the same instant, the later change in the log is the last.
+        var last: [String: (at: Int, changeId: String)] = [:]
         for change in changes where !rejected.contains(change.id) {
             // An add that was undone has no batch in the inventory.
             let productId: String?
@@ -101,19 +109,21 @@ public enum AddAgain {
             } else {
                 productId = takenProduct[change.id]
             }
-            if let productId, products[productId] != nil {
-                last[productId] = max(last[productId] ?? change.at, change.at)
+            if let productId, products[productId] != nil, change.at >= (last[productId]?.at ?? change.at) {
+                last[productId] = (change.at, change.id)
             }
         }
         return last
             .sorted(by: { first, second in
-                if first.value != second.value {
-                    return first.value > second.value
+                if first.value.at != second.value.at {
+                    return first.value.at > second.value.at
                 }
                 return first.key.utf8.lexicographicallyPrecedes(second.key.utf8)
             })
             .prefix(recentKept)
-            .compactMap { entry in products[entry.key].map { RecentFood(product: $0, at: entry.value) } }
+            .compactMap { entry in
+                products[entry.key].map { RecentFood(product: $0, at: entry.value.at, changeId: entry.value.changeId) }
+            }
     }
 
     /// The recent foods that the add form shows: not a product that the person removed from the list, unless it was
@@ -130,16 +140,49 @@ public enum AddAgain {
         )
     }
 
+    /// The recent foods that the add form shows: not a product that the person removed from the list
+    /// (`RecentSettings.hides`), unless it was added, used, or thrown away after that. Not more than `limit`.
+    public static func shown(_ recent: [RecentFood], settings: RecentSettings, limit: Int = recentCount) -> [Product] {
+        Array(recent.filter { !settings.hides($0) }.prefix(max(limit, 0)).map(\.product))
+    }
+
     /// True when the product has an active batch.
     public static func inStock(inventory: Inventory, productId: String) -> Bool {
         inventory.activeBatches.contains(where: { $0.productId == productId })
     }
 
-    /// The newest batch first: the later date added, and then the larger identifier, so that the order is fixed.
-    private static func isNewer(_ first: Batch, _ second: Batch) -> Bool {
+    /// The place of the `batchAdded` change of each batch in the order of the replay: the instant, and then the place
+    /// in the log. The phone gives each new change an instant after all earlier changes (`NewChanges.stamp`), so a
+    /// larger place is a later add. The first change of an identifier counts, as in the replay.
+    static func addOrder(_ changes: [Change]) -> [String: Int] {
+        let inOrder = changes.enumerated().sorted(by: { first, second in
+            first.element.at != second.element.at ? first.element.at < second.element.at : first.offset < second.offset
+        })
+        var seen = Set<String>()
+        var order: [String: Int] = [:]
+        for (place, item) in inOrder.enumerated() where seen.insert(item.element.id).inserted {
+            if case .batchAdded(let batch) = item.element.body, order[batch.id] == nil {
+                order[batch.id] = place
+            }
+        }
+        return order
+    }
+
+    /// The newest batch first: the later date added, then the later `batchAdded` change, and then the larger
+    /// identifier, so that the order is fixed. A batch with a known change comes before a batch with none.
+    private static func isNewer(_ first: Batch, _ second: Batch, order: [String: Int]) -> Bool {
         if first.dateAdded != second.dateAdded {
             return first.dateAdded > second.dateAdded
         }
-        return second.id.utf8.lexicographicallyPrecedes(first.id.utf8)
+        switch (order[first.id], order[second.id]) {
+        case let (firstPlace?, secondPlace?) where firstPlace != secondPlace:
+            return firstPlace > secondPlace
+        case (.some, nil):
+            return true
+        case (nil, .some):
+            return false
+        default:
+            return second.id.utf8.lexicographicallyPrecedes(first.id.utf8)
+        }
     }
 }

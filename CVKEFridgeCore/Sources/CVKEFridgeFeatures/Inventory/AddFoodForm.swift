@@ -12,6 +12,17 @@ public enum NameError: String, CaseIterable, Sendable {
     case inUse
 }
 
+/// An estimated expiry date and the food of the table of foods that gives it.
+public struct FoodEstimate: Hashable, Sendable {
+    public let food: Food
+    public let expiry: ExpiryDate
+
+    public init(food: Food, expiry: ExpiryDate) {
+        self.food = food
+        self.expiry = expiry
+    }
+}
+
 /// What the person typed and selected in the form that adds food. The form is one value, and each change of a field
 /// gives a new value.
 public struct AddFoodForm: Hashable, Sendable {
@@ -102,12 +113,26 @@ public struct AddFoodForm: Hashable, Sendable {
         return id.flatMap { foods.food(id: $0) }
     }
 
-    /// The form after the person typed in the name field. The food of the form stays while the name fits it. A name
-    /// that only one food of the table has gets that food. A food gives its category, if the person did not select
-    /// one. A change of the food gives the storage area of the food (`withUsualArea`).
+    /// The form after the person typed in the name field. The food of the form stays while the full name is the name
+    /// or an alias of the food (`isNamed`). For a different name, the form finds the food again: the food that only
+    /// it has as its name or alias. With no such food, the food stays only when the full name is one of its keywords,
+    /// so "Cheddar" keeps the hard cheese. A food gives its category, if the person did not select one. A change of the
+    /// food gives the storage area of the food (`withUsualArea`).
+    ///
+    /// The Android app keeps the food while one word of the name fits it, so "Chicken soup" keeps the estimate and the
+    /// storage area of raw chicken after the person selected "Chicken". This form does not.
     public func withName(_ text: String, foods: FoodTable, areas: [StorageArea]) -> AddFoodForm {
-        let kept = foodId.flatMap { foods.food(id: $0) }.flatMap { FoodSuggestions.fits($0, name: text) ? $0 : nil }
-        let food = kept ?? FoodSuggestions.onlyFoodNamed(text, foods: foods)
+        let current = foodId.flatMap { foods.food(id: $0) }
+        let food: Food?
+        if let current, AddFoodForm.isNamed(current, text) {
+            food = current
+        } else if let only = FoodSuggestions.onlyFoodNamed(text, foods: foods) {
+            food = only
+        } else {
+            food = current.flatMap { current in
+                current.keywords.contains(where: { Names.same($0, text) }) ? current : nil
+            }
+        }
         var next = self
         next.name = text
         next.foodId = food?.id
@@ -190,8 +215,7 @@ public struct AddFoodForm: Hashable, Sendable {
         if product(products) != nil {
             return []
         }
-        if let food = foodId.flatMap({ foods.food(id: $0) }),
-           Names.same(food.name, name) || food.aliases.contains(Names.clean(name).lowercased()) {
+        if let food = foodId.flatMap({ foods.food(id: $0) }), AddFoodForm.isNamed(food, name) {
             return []
         }
         return FoodSuggestions.find(name, products: products, foods: foods)
@@ -210,6 +234,27 @@ public struct AddFoodForm: Hashable, Sendable {
             return nil
         }
         return foods.estimate(foodId: food.id, kind: area.kind, dateAdded: today)
+    }
+
+    /// The estimated date and the food that gives it, so that the form can show the food of the estimate. Nil when
+    /// the form has no estimate.
+    public func estimated(
+        products: [Product],
+        areas: [StorageArea],
+        foods: FoodTable,
+        today: CalendarDate
+    ) -> FoodEstimate? {
+        guard let food = food(products: products, foods: foods),
+              let expiry = estimate(products: products, areas: areas, foods: foods, today: today)
+        else {
+            return nil
+        }
+        return FoodEstimate(food: food, expiry: expiry)
+    }
+
+    /// True when the full `name` is the name or an alias of the `food`. Case and extra spaces have no effect.
+    public static func isNamed(_ food: Food, _ name: String) -> Bool {
+        Names.same(food.name, name) || food.aliases.contains(where: { Names.same($0, name) })
     }
 
     /// The problem of the name, or nil.

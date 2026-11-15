@@ -96,6 +96,53 @@ struct AddFoodFormTests {
         #expect(selected.withName("", foods: foods, areas: areas).foodId == nil)
     }
 
+    // Correction of AddFoodForm.kt:70: after the person selected "Chicken", "Chicken soup" kept the estimate and the
+    // storage area of raw chicken, because one word of the name fits the food.
+    @Test func aLongerNameFindsItsFoodAgain() {
+        let chicken = Food(
+            id: "f-chicken",
+            name: "Chicken",
+            subtitle: "whole",
+            category: .meat,
+            keywords: ["chicken", "whole"],
+            days: [.fridge: 1, .freezer: 360],
+            usualKind: .freezer,
+            aliases: ["whole chicken"]
+        )
+        let soup = Food(
+            id: "f-soup",
+            name: "Soup",
+            subtitle: nil,
+            category: .leftovers,
+            keywords: ["soup"],
+            days: [.fridge: 3],
+            usualKind: .fridge,
+            aliases: ["chicken soup"]
+        )
+        let table = FoodTable(foods: [chicken, soup, butter])
+        let selected = AddFoodForm(storageAreaId: "pantry-1")
+            .withSuggestion(.ofFood(chicken, alias: nil), foods: table, areas: areas)
+        #expect(selected.foodId == "f-chicken")
+        #expect(selected.storageAreaId == "freezer")
+
+        // The name of the food, with other case and spaces, and an alias keep the food.
+        #expect(selected.withName(" CHICKEN ", foods: table, areas: areas).foodId == "f-chicken")
+        #expect(selected.withName("Whole chicken", foods: table, areas: areas).foodId == "f-chicken")
+        // A name that is the name or an alias of one other food gets that food, with its storage area.
+        let typed = selected.withName("Chicken soup", foods: table, areas: areas)
+        #expect(typed.foodId == "f-soup")
+        #expect(typed.storageAreaId == "fridge")
+        #expect(typed.estimated(products: products, areas: areas, foods: table, today: today)
+            == FoodEstimate(food: soup, expiry: estimated("2026-11-15")))
+        // A name of no food has no food, no estimate, and the start area.
+        let other = selected.withName("Chicken stew", foods: table, areas: areas)
+        #expect(other.foodId == nil)
+        #expect(other.storageAreaId == "pantry-1")
+        #expect(other.estimated(products: products, areas: areas, foods: table, today: today) == nil)
+        // The form shows the food of the estimate.
+        #expect(selected.estimated(products: products, areas: areas, foods: table, today: today)?.food == chicken)
+    }
+
     @Test func aCategoryThatThePersonSelectedStays() {
         let form = AddFoodForm(category: .leftovers, categoryChosen: true).withName("Butter", foods: foods, areas: areas)
         #expect(form.category == .leftovers)

@@ -27,6 +27,16 @@ public struct ProductForm: Hashable, Sendable {
         ProductForm(name: product.name, category: product.category, unit: product.unit, note: product.note ?? "")
     }
 
+    /// What a save of the form does to the quantities of the active batches of the product (see `UnitConversion`).
+    /// With `.keepsNumbers`, ask the person before the save: 500 g becomes 500 of the new unit. The result is
+    /// `.unchanged` when the unit stays or the product has no active batch.
+    public func unitChange(product: Product, inventory: Inventory) -> UnitChange {
+        guard inventory.activeBatches.contains(where: { $0.productId == product.id }) else {
+            return .unchanged
+        }
+        return UnitConversion.change(from: product.unit, to: unit)
+    }
+
     /// The problem of the name. Two products cannot have the same name, because the add form finds a product by its
     /// name.
     public func nameError(product: Product, products: [Product]) -> NameError? {

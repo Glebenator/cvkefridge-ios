@@ -363,6 +363,93 @@ struct InventoryActionsTests {
         #expect(pantry.kind == .fridge)
     }
 
+    // Correction of EditScreens.kt:101: a change of the unit kept the numbers, so 1 l of milk became 1 ml.
+    @Test func aChangeBetweenLitresAndMillilitresConvertsTheActiveBatchesAndUndoGivesThemBack() throws {
+        let milk = try product(log) { $0.id == "milk" }
+        let (_, used) = try apply(
+            .take(InventoryAction.Take(productId: "milk", batchIds: ["m-old"], quantity: 1_000, outcome: .used))
+        )
+        let millilitres = Product(id: "milk", name: "Milk", category: .dairy, unit: .ml, barcode: nil, foodId: nil)
+        let (planned, changes) = try apply(.saveProduct(InventoryAction.SaveProduct(product: millilitres)), from: used)
+        #expect(planned.message == .productEdited(name: "Milk"))
+        #expect(planned.undoable)
+        // The ended batch m-old has nothing to convert.
+        #expect(planned.bodies.count == 3)
+        #expect(quantities(changes) == ["m-new": 2_000_000, "m-old": 0, "m-frozen": 1_000_000, "r1": 1_000])
+        let frozen = try #require(Inventory.replay(changes).batches.first(where: { $0.id == "m-frozen" }))
+        let before = try #require(Inventory.replay(used).batches.first(where: { $0.id == "m-frozen" }))
+        #expect(frozen.expiry == before.expiry && frozen.dateAdded == before.dateAdded && frozen.storageAreaId == before.storageAreaId)
+
+        // "Undo" gives back the exact product and batches.
+        let (_, undone) = try apply(.undo(changeIds: changes.dropFirst(used.count).map(\.id)), from: changes)
+        #expect(try product(undone) { $0.id == "milk" } == milk)
+        #expect(Inventory.replay(undone).batches == Inventory.replay(used).batches)
+
+        // Back to litres gives the same numbers. A unit with no relation keeps the numbers.
+        let litres = Product(id: "milk", name: "Milk", category: .dairy, unit: .l, barcode: nil, foodId: nil)
+        let (_, back) = try apply(.saveProduct(InventoryAction.SaveProduct(product: litres)), from: changes)
+        #expect(quantities(back) == quantities(used))
+        let bottles = Product(id: "milk", name: "Milk", category: .dairy, unit: .bottle, barcode: nil, foodId: nil)
+        let (kept, afterBottles) = try apply(.saveProduct(InventoryAction.SaveProduct(product: bottles)), from: used)
+        #expect(kept.bodies == [.productSaved(product: bottles)])
+        #expect(quantities(afterBottles) == quantities(used))
+    }
+
+    @Test func gramsAndKilogramsConvertExactlyAndASmallerPartGoesToTheNearestThousandth() {
+        #expect(UnitConversion.convert(500_000, from: .g, to: .kg) == 500)
+        #expect(UnitConversion.convert(500, from: .kg, to: .g) == 500_000)
+        #expect(UnitConversion.convert(1_500, from: .g, to: .kg) == 2)
+        #expect(UnitConversion.convert(1_499, from: .g, to: .kg) == 1)
+        #expect(UnitConversion.convert(1, from: .ml, to: .l) == 1)
+        #expect(UnitConversion.convert(1_000, from: .pcs, to: .kg) == nil)
+        #expect(UnitConversion.convert(1_000, from: nil, to: .g) == nil)
+        #expect(UnitConversion.change(from: .g, to: .kg) == .converts)
+        #expect(UnitConversion.change(from: .l, to: .ml) == .converts)
+        #expect(UnitConversion.change(from: .g, to: .l) == .keepsNumbers)
+        #expect(UnitConversion.change(from: nil, to: .pcs) == .keepsNumbers)
+        #expect(UnitConversion.change(from: .kg, to: .kg) == .unchanged)
+    }
+
+    // Correction of FoodNote.kt:88 and EditScreens.kt: an edit of a product, of a batch, or of a note had no message
+    // and no Undo.
+    @Test func anEditOfAProductABatchOrANoteHasAMessageAndCanBeUndone() throws {
+        let milk = try product(log) { $0.id == "milk" }
+        let renamed = Product(id: "milk", name: "Whole milk", category: .dairy, unit: .l, barcode: nil, foodId: nil)
+        let (edited, afterEdit) = try apply(.saveProduct(InventoryAction.SaveProduct(product: renamed)))
+        #expect(edited.message == .productEdited(name: "Whole milk"))
+        #expect(edited.undoable)
+        let (_, undoneEdit) = try apply(.undo(changeIds: afterEdit.dropFirst(log.count).map(\.id)), from: afterEdit)
+        #expect(try product(undoneEdit) { $0.id == "milk" } == milk)
+
+        // A note, a changed note, and a removed note.
+        func withNote(_ note: String?) -> InventoryAction {
+            .saveProduct(InventoryAction.SaveProduct(product: Product(
+                id: "milk", name: "Milk", category: .dairy, unit: .l, barcode: nil, foodId: nil, note: note
+            )))
+        }
+        let (noted, afterNote) = try apply(withNote("For the cake"))
+        #expect(noted.message == .noteSaved(name: "Milk"))
+        let (changedNote, afterChange) = try apply(withNote("For the tea"), from: afterNote)
+        #expect(changedNote.message == .noteSaved(name: "Milk"))
+        let (removed, afterRemove) = try apply(withNote(nil), from: afterChange)
+        #expect(removed.message == .noteRemoved(name: "Milk"))
+        #expect(removed.undoable)
+        let (_, undoneRemove) = try apply(.undo(changeIds: afterRemove.dropFirst(afterChange.count).map(\.id)), from: afterRemove)
+        #expect(try product(undoneRemove) { $0.id == "milk" }.note == "For the tea")
+
+        // A batch.
+        let old = try #require(inventory.batches.first(where: { $0.id == "m-old" }))
+        let (batchEdit, afterBatch) = try apply(
+            .editBatch(InventoryAction.EditBatch(
+                batchId: "m-old", quantity: 500, storageAreaId: "freezer", dateAdded: date("2026-11-02"), expiry: nil
+            ))
+        )
+        #expect(batchEdit.message == .batchEdited(name: "Milk"))
+        #expect(batchEdit.undoable)
+        let (_, undoneBatch) = try apply(.undo(changeIds: afterBatch.dropFirst(log.count).map(\.id)), from: afterBatch)
+        #expect(Inventory.replay(undoneBatch).batches.first(where: { $0.id == "m-old" }) == old)
+    }
+
     @Test func anEmptyUndoIsRefused() {
         #expect(plan(.undo(changeIds: []), inventory) == .refused(.unknownChange))
     }
