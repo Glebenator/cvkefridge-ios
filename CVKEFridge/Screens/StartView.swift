@@ -8,28 +8,20 @@ struct StartView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Space.s4) {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Palette.accentSubtle)
-                    .frame(width: 56, height: 56)
-                    .overlay {
-                        Image(systemName: "refrigerator")
-                            .font(.title2)
-                            .foregroundStyle(Palette.accent)
-                    }
-                    .accessibilityHidden(true)
+                BrandTile()
                 Text("CVKE Fridge")
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(Palette.ink)
+                    .foregroundStyle(Palette.onSurface)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("start_title")
                 Text("Food inventory for the fridge. This first build has the start screen only.")
                     .font(.body)
-                    .foregroundStyle(Palette.inkMuted)
+                    .foregroundStyle(Palette.onSurfaceVariant)
                     .multilineTextAlignment(.center)
                 Text("Version \(version.label)")
                     .font(.footnote)
-                    .foregroundStyle(Palette.inkMuted)
+                    .foregroundStyle(Palette.onSurfaceVariant)
                     .multilineTextAlignment(.center)
                     .accessibilityIdentifier("start_version")
             }
@@ -37,7 +29,7 @@ struct StartView: View {
             .frame(maxWidth: .infinity)
         }
         .defaultScrollAnchor(.center)
-        .background(Palette.background.ignoresSafeArea())
+        .background(Palette.surface.ignoresSafeArea())
     }
 
     /// The version from the Info.plist of the app bundle.

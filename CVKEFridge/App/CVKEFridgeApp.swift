@@ -5,7 +5,7 @@ struct CVKEFridgeApp: App {
     var body: some Scene {
         WindowGroup {
             StartView()
-                .tint(Palette.accent)
+                .tint(Palette.primary)
         }
     }
 }
