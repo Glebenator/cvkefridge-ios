@@ -412,4 +412,111 @@ struct AddFoodFormTests {
         #expect(names == ["Burger buns", "Butter", "Peanut butter"])
         #expect(FoodSuggestions.find("b", products: products, foods: foods) == [])
     }
+
+    /// A change log with milk in the pantry: two batches of 2 l and one newer batch of 1 l.
+    private var milkInventory: Inventory {
+        func batch(_ id: String, _ quantity: Int, _ area: String, _ added: String) -> ChangeBody {
+            .batchAdded(
+                batch: Batch(id: id, productId: milk.id, quantity: quantity, storageAreaId: area, dateAdded: date(added), expiry: nil)
+            )
+        }
+        let bodies: [ChangeBody] = [
+            .storageAreaSaved(id: pantry.id, name: pantry.name, kind: pantry.kind),
+            .productSaved(product: milk),
+            batch("b-1", 2_000, "fridge", "2026-11-01"),
+            batch("b-2", 2_000, "fridge", "2026-11-03"),
+            batch("b-3", 1_000, pantry.id, "2026-11-05"),
+        ]
+        return Inventory.replay(bodies.enumerated().map { Change(id: "c-\($0.offset)", at: $0.offset, origin: "phone", body: $0.element) })
+    }
+
+    private func start(productId: String? = nil, openAreaId: String? = nil, scan: Scanned? = nil, again: Bool = false) -> AddFoodForm {
+        AddFoodForm.start(
+            productId: productId,
+            openAreaId: openAreaId,
+            scan: scan,
+            again: again,
+            inventory: milkInventory,
+            foods: foods,
+            lastAreaId: "freezer",
+            decimalSeparator: ","
+        )
+    }
+
+    @Test func theScanOfTheLookupGivesTheSameFormAsItsValues() {
+        let scan = Scanned(
+            barcode: "3017620422003",
+            source: .found,
+            name: "Président Butter",
+            category: .dairy,
+            foodId: "f-butter",
+            quantity: 250_000,
+            unit: .g,
+            storageKind: .fridge,
+            storageText: "Keep cold"
+        )
+        let form = AddFoodForm.scanned(scan, storageAreaId: "freezer", decimalSeparator: ".")
+        #expect(
+            form == AddFoodForm.scanned(
+                barcode: "3017620422003",
+                name: "Président Butter",
+                categoryKey: "dairy",
+                foodId: "f-butter",
+                quantity: 250_000,
+                unitKey: "g",
+                storageKindKey: "fridge",
+                storageText: "Keep cold",
+                storageAreaId: "freezer",
+                decimalSeparator: "."
+            )
+        )
+    }
+
+    @Test func theStartFormIsEmptyInTheLastUsedAreaAndThenInTheOpenArea() {
+        #expect(start() == AddFoodForm(storageAreaId: "freezer"))
+        #expect(start(openAreaId: pantry.id) == AddFoodForm(storageAreaId: "freezer"))
+        let noLast = AddFoodForm.start(
+            productId: nil, openAreaId: pantry.id, scan: nil, again: false,
+            inventory: milkInventory, foods: foods, lastAreaId: nil, decimalSeparator: "."
+        )
+        #expect(noLast == AddFoodForm(storageAreaId: pantry.id))
+    }
+
+    @Test func addAgainStartsWithTheNewestAreaAndTheUsualQuantity() {
+        let form = start(productId: milk.id, again: true)
+        #expect(form.name == "Whole milk")
+        #expect(form.storageAreaId == pantry.id)
+        #expect(form.areaKept)
+        #expect(form.quantity == "2")
+        #expect(form.unit == .l)
+        #expect(form.expiry == .suggested)
+        #expect(form.barcode == nil)
+    }
+
+    // Correction of AddFoodScreen.kt:159: a scan of a barcode that the inventory has gets the values of "Add again".
+    @Test func aScanOfAProductInTheInventoryStartsAsAddAgainWithTheBarcode() {
+        let scan = Scanned(barcode: "5449000000996", source: .inInventory, storageKind: .freezer)
+        let form = start(productId: milk.id, scan: scan)
+        #expect(form.name == "Whole milk")
+        #expect(form.barcode == "5449000000996")
+        #expect(form.quantity == "2")
+        // The storage area of the newest batch comes before the storage hint.
+        #expect(form.storageAreaId == pantry.id)
+        #expect(form.hintKind == .freezer)
+    }
+
+    @Test func aScanOfANewProductStartsWithTheValuesOfTheScanInTheAreaOfItsHint() {
+        let scan = Scanned(
+            barcode: "3017620422003", source: .found, name: "Skippy", category: .condiment, foodId: "f-peanut",
+            quantity: 1_500, unit: .kg
+        )
+        let form = start(scan: scan)
+        #expect(form.name == "Skippy")
+        #expect(form.quantity == "1,5")
+        #expect(form.unit == .kg)
+        // Peanut butter is usually in the pantry.
+        #expect(form.storageAreaId == pantry.id)
+        // A product that is not in the inventory has no effect.
+        #expect(start(productId: "p-gone", scan: scan) == form)
+    }
 }

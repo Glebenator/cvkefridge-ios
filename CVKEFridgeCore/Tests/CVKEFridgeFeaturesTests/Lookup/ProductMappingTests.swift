@@ -5,16 +5,6 @@ import Testing
 /// the quantity of the package. The foods here have the names, the categories, and the keywords of `spec/foods.json`.
 /// The Android test `ProductMappingTest` has the same cases. The last tests are for the corrections of the iOS port.
 struct ProductMappingTests {
-    /// `Names.MAX_FOOD_LENGTH` of Android.
-    private static let maxNameLength = 80
-
-    /// `StorageTexts.clean` of Android, until the inventory rules of the iOS port give it: one space between words, no
-    /// spaces at the ends, and not more than 500 characters.
-    private static func cleanStorageText(_ text: String?) -> String? {
-        let plain = (text ?? "").split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        return plain.isEmpty ? nil : String(plain.prefix(500))
-    }
-
     private func food(
         _ id: String,
         _ name: String,
@@ -59,18 +49,11 @@ struct ProductMappingTests {
     }
 
     private func name(_ product: LookedUpProduct) -> String {
-        ProductNames.of(product, maxLength: Self.maxNameLength)
+        ProductNames.of(product)
     }
 
     private func found(_ barcode: String, _ product: LookedUpProduct) -> Scanned {
-        ScannedFoods.found(
-            barcode: barcode,
-            product: product,
-            foods: foods,
-            hints: hints,
-            maxNameLength: Self.maxNameLength,
-            cleanStorageText: Self.cleanStorageText
-        )
+        ScannedFoods.found(barcode: barcode, product: product, foods: foods, hints: hints)
     }
 
     @Test func theNameHasTheBrandOnlyWhenTheNameDoesNotHaveIt() {

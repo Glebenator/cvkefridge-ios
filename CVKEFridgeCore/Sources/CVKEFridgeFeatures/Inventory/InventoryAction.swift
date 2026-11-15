@@ -193,14 +193,14 @@ public enum InventoryActions {
     /// - Parameters:
     ///   - today: The date in the time zone of the device.
     ///   - newId: Makes a random identifier.
-    ///   - normalizeBarcode: Gives a barcode in the form of the lookup, or nil when the text is not a barcode. The app
-    ///     gives the normalize function of the barcodes of the lookup (`Barcodes.normalize` on Android).
+    ///   - normalizeBarcode: Gives a barcode in the form of the lookup, or nil when the text is not a barcode. The
+    ///     default is the normalize function of the barcodes of the lookup (`Barcodes.normalize`).
     public static func plan(
         _ action: InventoryAction,
         inventory: Inventory,
         today: CalendarDate,
         newId: () -> String,
-        normalizeBarcode: (String) -> String?
+        normalizeBarcode: (String) -> String? = Barcodes.normalize
     ) -> Planned {
         switch action {
         case .addFood(let add):

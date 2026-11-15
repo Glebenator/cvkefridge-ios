@@ -15,9 +15,11 @@ public enum ProductNames {
     /// capital letters only gets a capital letter at the start of each word. The result has not more than `maxLength`
     /// characters: a longer name loses the brand, and then the words at the end.
     ///
+    /// The name is clean as the add form cleans a name (`Names.clean`): all white space between two words is one space.
+    ///
     /// - Parameter maxLength: The largest number of characters in the name of a food. The add form has this limit
-    ///   (`Names.MAX_FOOD_LENGTH` of Android, 80).
-    public static func of(_ product: LookedUpProduct, maxLength: Int) -> String {
+    ///   (`Names.maxFoodLength`).
+    public static func of(_ product: LookedUpProduct, maxLength: Int = Names.maxFoodLength) -> String {
         let name = clean(product.name)
         let brands = (product.brands ?? "").split(separator: ",", omittingEmptySubsequences: false)
             .map { clean(String($0)) }
@@ -46,7 +48,7 @@ public enum ProductNames {
         for scalar in text.unicodeScalars {
             scalars.append(isISOControl(scalar) ? " " : scalar)
         }
-        let plain = collapseSpaces(decodeEntities(String(scalars)))
+        let plain = Names.clean(decodeEntities(String(scalars)))
         let letters = plain.filter(\.isLetter)
         let hasLowercase = letters.contains(where: \.isLowercase)
         return letters.count > 3 && !hasLowercase ? capitalizeWords(plain) : plain
@@ -192,7 +194,7 @@ public enum FoodMatch {
             return nil
         }
         let best = candidates.filter { stems($0.name).count == most }
-        if Set(best.map { collapseSpaces($0.name).lowercased() }).count > 1 {
+        if Set(best.map { Names.clean($0.name).lowercased() }).count > 1 {
             return nil
         }
         // The first food with the highest number.
@@ -340,25 +342,4 @@ public enum PackQuantity {
 /// A character in the ranges U+0000 to U+001F and U+007F to U+009F.
 private func isISOControl(_ scalar: Unicode.Scalar) -> Bool {
     scalar.value <= 0x1F || (0x7F...0x9F).contains(scalar.value)
-}
-
-/// The text with no space at the start or the end, and one space between words. The add form cleans a name in the
-/// same way (`Names.clean` of Android): it removes each white space at the ends, and it changes each sequence of ASCII
-/// spaces (`\s`) to one space.
-private func collapseSpaces(_ text: String) -> String {
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    var result = String.UnicodeScalarView()
-    var inSpace = false
-    for scalar in trimmed.unicodeScalars {
-        if scalar == " " || (0x09...0x0D).contains(scalar.value) {
-            if !inSpace {
-                result.append(" ")
-            }
-            inSpace = true
-        } else {
-            result.append(scalar)
-            inSpace = false
-        }
-    }
-    return String(result)
 }

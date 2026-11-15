@@ -2,8 +2,8 @@ import Foundation
 
 // The form that adds food.
 // The Android file `app/src/main/java/com/cvke/fridge/inventory/AddFoodForm.kt` in cvkefridge-android has the same
-// behaviour. The Android form takes a `Scanned` value of the lookup. This file takes its values one by one
-// (`AddFoodForm.scanned(barcode:...)`), so that it does not need the lookup.
+// behaviour. `AddFoodForm.start` is the start value of the form, which the Android app makes in
+// `ui/AddFoodScreen.kt`, with one correction (a scan of a barcode that the inventory has).
 
 /// Why a name in a form is not good.
 public enum NameError: String, CaseIterable, Sendable {
@@ -319,6 +319,75 @@ public struct AddFoodForm: Hashable, Sendable {
             barcode: barcode,
             storageText: storageText
         )
+    }
+
+    /// The form after a scan, with the values of the `scan` of the lookup. See `scanned(barcode:...)`.
+    public static func scanned(_ scan: Scanned, storageAreaId: String, decimalSeparator: String) -> AddFoodForm {
+        scanned(
+            barcode: scan.barcode,
+            name: scan.name,
+            categoryKey: scan.category?.rawValue,
+            foodId: scan.foodId,
+            quantity: scan.quantity,
+            unitKey: scan.unit?.rawValue,
+            storageKindKey: scan.storageKind?.rawValue,
+            storageText: scan.storageText,
+            storageAreaId: storageAreaId,
+            decimalSeparator: decimalSeparator
+        )
+    }
+
+    /// The form that the app opens.
+    ///
+    /// - A product in the inventory, from "Add again", "Add a batch", or a scan of its barcode: the values of
+    ///   `again(product:values:startArea:decimalSeparator:)`. After a scan, the form also has the barcode and the
+    ///   storage kind of the storage hint of the scan. The storage hint gives the storage area only when the storage
+    ///   area of the newest batch is not known.
+    /// - A scan of a barcode that the inventory does not have: the values of the scan, in the storage area for its
+    ///   storage hint and its food.
+    /// - Else an empty form.
+    ///
+    /// The Android app opens the form for a scan of a barcode that the inventory has with a quantity of 1 in the last
+    /// used storage area. "Save and scan next" can then save 1 g of a food that has 500 g in each package.
+    ///
+    /// - Parameters:
+    ///   - productId: The product that gets a batch, or nil. A product that is not in the inventory has no effect.
+    ///   - openAreaId: The storage area that My Fridge showed when the person opened the form, or nil.
+    ///   - scan: The values of a scan, or nil.
+    ///   - again: True for "Add again" and "Add a batch".
+    ///   - lastAreaId: The storage area of the last batch that the person added, or nil.
+    ///   - decimalSeparator: The decimal sign of the locale, for the quantity text.
+    public static func start(
+        productId: String?,
+        openAreaId: String?,
+        scan: Scanned?,
+        again: Bool,
+        inventory: Inventory,
+        foods: FoodTable,
+        lastAreaId: String?,
+        decimalSeparator: String
+    ) -> AddFoodForm {
+        let areas = inventory.storageAreas
+        let area = startArea(lastUsedId: lastAreaId, openTabId: openAreaId, areas: areas)
+        if let existing = productId.flatMap({ id in inventory.products.first(where: { $0.id == id }) }) {
+            guard again || scan != nil else {
+                return AddFoodForm(name: existing.name, storageAreaId: area)
+            }
+            var form = AddFoodForm.again(
+                product: existing,
+                values: AddAgain.values(inventory: inventory, productId: existing.id),
+                startArea: area,
+                decimalSeparator: decimalSeparator
+            )
+            form.barcode = scan?.barcode
+            form.hintKind = scan?.storageKind
+            return form.withUsualArea(foods: foods, areas: areas)
+        }
+        if let scan {
+            return scanned(scan, storageAreaId: area, decimalSeparator: decimalSeparator)
+                .withUsualArea(foods: foods, areas: areas)
+        }
+        return AddFoodForm(storageAreaId: area)
     }
 
     /// The form that adds a batch to a product that the person had before ("Add again"). `startArea` is the storage

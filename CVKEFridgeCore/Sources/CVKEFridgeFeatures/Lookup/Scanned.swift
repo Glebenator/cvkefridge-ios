@@ -67,16 +67,16 @@ public enum ScannedFoods {
     /// storage kind is the storage hint of the storage text and the tags of the product (`StorageHints`).
     ///
     /// - Parameters:
-    ///   - maxNameLength: The largest number of characters in the name of a food (`Names.MAX_FOOD_LENGTH` of
-    ///     Android).
-    ///   - cleanStorageText: Makes the storage text that the app saves (`StorageTexts.clean` of Android).
+    ///   - maxNameLength: The largest number of characters in the name of a food. The default is
+    ///     `Names.maxFoodLength`.
+    ///   - cleanStorageText: Makes the storage text that the app saves. The default is `StorageTexts.clean`.
     public static func found(
         barcode: String,
         product: LookedUpProduct,
         foods: FoodTable,
         hints: StorageHints,
-        maxNameLength: Int,
-        cleanStorageText: (String?) -> String?
+        maxNameLength: Int = Names.maxFoodLength,
+        cleanStorageText: (String?) -> String? = StorageTexts.clean
     ) -> Scanned {
         let tagCategory = ProductCategories.of(product.categories)
         let food = FoodMatch.find(product.name, category: tagCategory, foods: foods)

@@ -108,4 +108,18 @@ struct BarcodesTests {
         // Four zeros at the start are a UPC-A of a company, not an EAN-8.
         #expect(typed("0000123456784") == "0000123456784")
     }
+
+    // Correction of Barcodes.kt:45: eight typed digits can be an EAN-8 and a UPC-E at the same time.
+    @Test func eightTypedDigitsThatCanBeTwoBarcodesGiveTheTwoForms() {
+        #expect(Barcodes.typedForms("0123 4565") == ["01234565", "0012345000065"])
+        // The first form is the barcode of `parseTyped`.
+        #expect(typed("01234565") == "01234565")
+        // Only an EAN-8, and only a UPC-E.
+        #expect(Barcodes.typedForms("96385074") == ["96385074"])
+        #expect(Barcodes.typedForms("04252614") == ["0042100005264"])
+        // A text with a different number of digits has one form, and a text that is not a barcode has none.
+        #expect(Barcodes.typedForms("036000291452") == ["0036000291452"])
+        #expect(Barcodes.typedForms("96385075") == [])
+        #expect(Barcodes.typedForms("12a") == [])
+    }
 }
