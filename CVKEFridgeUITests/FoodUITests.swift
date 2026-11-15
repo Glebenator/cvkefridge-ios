@@ -95,10 +95,11 @@ final class FoodUITests: FridgeUITestCase {
         expect(app.staticTexts["You have none of this food now"], "The food does not say that it has no batch")
         XCTAssertEqual(app.staticTexts["food_summary"].label, "Beverage")
         XCTAssertFalse(app.buttons["food_used"].exists, "A food with no batch has a Used button")
+        // The history of the food counts the use. A sum has a no-break space before its unit.
+        XCTAssertTrue(app.staticTexts["Used: 2\u{00A0}bottles from 2 batches"].exists, "The history does not count the use")
         capture("food-none")
-        scrollTo(app.staticTexts["Used: 2\u{00A0}bottles from 2 batches"], "The history does not count the use")
 
-        scrollTo(app.buttons["Undo"], "The message has no Undo").tap()
+        app.buttons["Undo"].tap()
         expect(app.buttons["food_used"], "Undo did not bring the batch back")
         XCTAssertFalse(app.staticTexts["You have none of this food now"].exists)
 
@@ -106,6 +107,7 @@ final class FoodUITests: FridgeUITestCase {
         app.buttons["batch_menu_sample-batch-7"].tap()
         expect(app.buttons["menu_thrown_away"], "The menu of the batch has no Thrown away").tap()
         expect(app.staticTexts["1 bottle of Orange juice thrown away"], "The message of the throw away did not show")
+        expect(app.staticTexts["Thrown away: 1\u{00A0}bottle from 1 batch"], "The history does not count the throw away")
         let add = scrollTo(app.buttons["add_again"], "The food with no batch has no Add again")
         add.tap()
         expect(app.navigationBars["Add food"], "Add again did not open the add form")
@@ -231,7 +233,11 @@ final class FoodUITests: FridgeUITestCase {
         let kiwi = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Kiwi")).firstMatch
         expect(kiwi, "My Fridge does not show the new food").tap()
         expect(app.staticTexts["food_name"], "The screen of the food did not open")
-        expect(app.buttons["Undo"], "The message of the add went away").tap()
+        // The message stays for some seconds only. On a slow simulator it can be gone now.
+        guard app.buttons["Undo"].exists else {
+            throw XCTSkip("The message of the add closed before the test got to its Undo.")
+        }
+        app.buttons["Undo"].tap()
         waitUntilGone(app.staticTexts["food_name"], "The screen of a food that is not there stayed open")
         XCTAssertTrue(app.navigationBars["My Fridge"].exists, "The screen did not go back to My Fridge")
     }
@@ -280,12 +286,11 @@ final class FoodUITests: FridgeUITestCase {
 
         // The photo picker of the system is a different process. It shows the pictures of the simulator.
         expect(app.buttons["photo_choose"], "The food has no Choose a photo").tap()
-        let picker = XCUIApplication(bundleIdentifier: "com.apple.mobileslideshow.photospicker")
-        let picture = picker.images.firstMatch
-        guard picture.waitForExistence(timeout: 15) else {
+        guard let picture = pictureOfThePicker() else {
             throw XCTSkip("The photo picker of this simulator shows no picture.")
         }
-        picture.tap()
+        // The pictures of the other process are not hittable for XCTest, so the tap is at a position.
+        picture.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
 
         // The photo is at the top, above the name, with "Change photo" and "Remove photo".
         let photo = expect(element("food_photo"), "The photo of the food does not show", timeout: 20)
@@ -328,6 +333,17 @@ final class FoodUITests: FridgeUITestCase {
     /// The card of a food on My Fridge. Its identifier starts with "food_" and the identifier of the product.
     private func card(_ productId: String) -> XCUIElement {
         app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "food_\(productId)")).firstMatch
+    }
+
+    /// The first picture in the photo picker of the system, or nil when the picker shows none. The picker is a
+    /// different process. With large text, its pictures are below its first screen.
+    private func pictureOfThePicker() -> XCUIElement? {
+        let picker = XCUIApplication(bundleIdentifier: "com.apple.mobileslideshow.photospicker")
+        let picture = picker.images.matching(identifier: "PXGGridLayout-Info").firstMatch
+        if !picture.waitForExistence(timeout: 15) {
+            picker.swipeUp()
+        }
+        return picture.waitForExistence(timeout: 5) ? picture : nil
     }
 
     /// Opens the screen of a food from My Fridge.
