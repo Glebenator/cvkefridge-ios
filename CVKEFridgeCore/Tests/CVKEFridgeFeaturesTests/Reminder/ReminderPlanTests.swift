@@ -241,4 +241,72 @@ struct ReminderPlanTests {
         #expect(reminders.first?.time == ReminderTime(hour: 9, minute: 0))
         #expect(dates(reminders) == ["2026-11-12", "2026-11-13", "2026-11-14"])
     }
+
+    // MARK: The notification of a planned reminder
+
+    private func reminder(on date: String, at minuteOfDay: Int) -> PlannedReminder {
+        PlannedReminder(
+            date: I.date(date),
+            time: ReminderTime(minuteOfDay: minuteOfDay)!,
+            foods: [ReminderFood(productId: "milk", name: "Whole milk", daysLeft: 0, estimated: false)]
+        )
+    }
+
+    private func instant(_ text: String) -> Date {
+        try! Date(text, strategy: .iso8601)
+    }
+
+    @Test func eachDateHasOneIdentifierThatGivesTheDateBack() {
+        let reminder = reminder(on: "2026-11-14", at: 9 * 60)
+        #expect(reminder.identifier == "reminder-2026-11-14")
+        #expect(PlannedReminder.date(ofIdentifier: reminder.identifier) == I.date("2026-11-14"))
+        // The time is not in the identifier: a new time replaces the notification of the same date.
+        #expect(self.reminder(on: "2026-11-14", at: 18 * 60).identifier == reminder.identifier)
+        #expect(PlannedReminder.date(ofIdentifier: "test-reminder") == nil)
+        #expect(PlannedReminder.date(ofIdentifier: "reminder-") == nil)
+        #expect(PlannedReminder.date(ofIdentifier: "reminder-2026-02-30") == nil)
+        #expect(PlannedReminder.date(ofIdentifier: "2026-11-14") == nil)
+    }
+
+    @Test func theTriggerHasTheFullDateAndTimeInTheTimeZone() {
+        let components = reminder(on: "2026-11-14", at: 9 * 60 + 5).triggerComponents(timeZone: berlin)
+        #expect(components.year == 2026)
+        #expect(components.month == 11)
+        #expect(components.day == 14)
+        #expect(components.hour == 9)
+        #expect(components.minute == 5)
+        #expect(components.second == 0)
+        #expect(components.timeZone == berlin)
+        #expect(components.calendar?.identifier == .gregorian)
+        #expect(components.date == instant("2026-11-14T08:05:00Z"))
+    }
+
+    @Test func theTriggerOfATimeThatTheClockSkipsIsATimeThatExists() {
+        // On 29 March 2026 the clock of Berlin skips from 02:00 to 03:00. A reminder at 02:30 comes at 03:30.
+        let components = reminder(on: "2026-03-29", at: 2 * 60 + 30).triggerComponents(timeZone: berlin)
+        #expect(components.day == 29)
+        #expect(components.hour == 3)
+        #expect(components.minute == 30)
+        #expect(components.date == instant("2026-03-29T01:30:00Z"))
+    }
+
+    @Test func theTriggerInTheHourThatTheClockRepeatsIsTheFirstTime() {
+        // On 25 October 2026 the clock of Berlin goes back from 03:00 to 02:00. A reminder at 02:30 comes the first
+        // time that the clock shows 02:30.
+        let components = reminder(on: "2026-10-25", at: 2 * 60 + 30).triggerComponents(timeZone: berlin)
+        #expect(components.hour == 2)
+        #expect(components.minute == 30)
+        #expect(components.date == instant("2026-10-25T00:30:00Z"))
+    }
+
+    @Test func theTriggerStaysGregorianForEachCalendarOfThePerson() {
+        // The year 2026 of the Gregorian calendar is the year 8 of the Japanese calendar. The components stay
+        // Gregorian, so the trigger is on the correct day.
+        let components = reminder(on: "2026-11-14", at: 9 * 60).triggerComponents(timeZone: berlin)
+        var japanese = Calendar(identifier: .japanese)
+        japanese.timeZone = berlin
+        #expect(components.year == 2026)
+        #expect(components.calendar?.date(from: components) == instant("2026-11-14T08:00:00Z"))
+        #expect(japanese.component(.year, from: instant("2026-11-14T08:00:00Z")) == 8)
+    }
 }

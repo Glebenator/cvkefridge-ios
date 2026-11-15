@@ -168,3 +168,46 @@ public enum ReminderPlan {
         return dates.sorted()
     }
 }
+
+// MARK: - The notification of a planned reminder
+
+/// The identifier and the trigger of the local notification of a planned reminder.
+///
+/// Rules:
+/// 1. Each date has one identifier: `reminder-2026-11-14`. A new plan replaces the notification of the same date, and
+///    the app can find the date of a notification that iOS shows.
+/// 2. The trigger is the instant of `triggerAt(timeZone:)`, as a full date and time in the time zone of the device.
+///    On a day when the clock skips the time of the reminder, the trigger is later by the gap. The date components
+///    then always name a time that exists on the clock.
+extension PlannedReminder {
+    /// The start of the identifier of each planned reminder. The rest is the date.
+    public static let identifierPrefix = "reminder-"
+
+    /// The identifier of the notification of this reminder (rule 1).
+    public var identifier: String {
+        Self.identifierPrefix + date.text
+    }
+
+    /// The date of a notification identifier of a planned reminder, or nil for each other identifier.
+    public static func date(ofIdentifier identifier: String) -> CalendarDate? {
+        guard identifier.hasPrefix(identifierPrefix) else {
+            return nil
+        }
+        return CalendarDate.parse(String(identifier.dropFirst(identifierPrefix.count)))
+    }
+
+    /// The date and the time of the trigger of the notification (rule 2): the Gregorian year, month, day, hour,
+    /// minute, and second of the instant in the time zone, with the calendar and the time zone. The components give
+    /// the same instant on each device, also when the person uses a calendar that is not Gregorian.
+    public func triggerComponents(timeZone: TimeZone) -> DateComponents {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        var components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: triggerAt(timeZone: timeZone)
+        )
+        components.calendar = calendar
+        components.timeZone = timeZone
+        return components
+    }
+}
