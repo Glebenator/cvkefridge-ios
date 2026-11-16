@@ -168,7 +168,10 @@ final class InventoryScreensUITests: FridgeUITestCase {
         expect(app.staticTexts["No matching items"], "The Freezer shows food for a search text that it does not have")
         XCTAssertFalse(app.buttons["filter_clear"].exists, "Clear filters shows with no filter")
         capture("my-fridge-no-match")
-        search.buttons["Clear text"].tap()
+        clearText(of: search)
+        // With an empty search text, the "search" key does not close the keyboard. With large text, the keyboard
+        // covers the second card, so the search closes.
+        closeSearch()
         scrollTo(app.buttons["food_sample-bread/freezer"], "The Freezer does not show the bread")
         // With large text, the second card is below the screen.
         scrollTo(app.buttons["food_sample-peas/freezer"], "The Freezer does not show the peas")
@@ -177,7 +180,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         type("bakery", in: search)
         scrollTo(app.buttons["food_sample-bread/freezer"], "The search did not find the category")
         XCTAssertFalse(app.buttons["food_sample-peas/freezer"].exists)
-        search.buttons["Clear text"].tap()
+        clearText(of: search)
         closeSearch()
 
         // The menu of the category chip has the categories with food in the Freezer, with the number of foods.
@@ -437,6 +440,16 @@ final class InventoryScreensUITests: FridgeUITestCase {
             app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "food_sample-")).firstMatch,
             "My Fridge shows no card"
         )
+    }
+
+    /// Removes the text of the search field with its "Clear text" button. The button shows only while the field
+    /// has the keyboard, and a scroll with large text can close the keyboard.
+    private func clearText(of search: XCUIElement) {
+        let clear = search.buttons["Clear text"]
+        if !clear.exists {
+            search.tap()
+        }
+        expect(clear, "The search field has no Clear text").tap()
     }
 
     /// Closes the search field of My Fridge, with the button of the system.

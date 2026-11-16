@@ -209,7 +209,8 @@ class FridgeUITestCase: XCTestCase {
         // the sheet: the sheet goes back when the finger goes up.
         let maxDown = min(height * 0.8, app.frame.height * 0.22)
         // While the element is not there, the search goes to one end of the content, and then to the other end.
-        let firstSearch = 14
+        // With the largest text and a message of the app, the list of the sample is more than 14 short drags long.
+        let firstSearch = 30
         var searches = 0
         var lastY: CGFloat?
         var stops = 0
@@ -217,7 +218,7 @@ class FridgeUITestCase: XCTestCase {
         if !element.exists {
             _ = element.waitForExistence(timeout: 2)
         }
-        for _ in 0..<70 {
+        for _ in 0..<(firstSearch * 3 + 40) {
             // A positive step moves the content up.
             var step: CGFloat
             if element.exists {
@@ -399,9 +400,13 @@ class FridgeUITestCase: XCTestCase {
         // The return key of some keyboards is "Done" also. It has the identifier "Done", and the button above the
         // keyboard has no identifier.
         let done = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Done", "Done")).firstMatch
-        if done.exists && done.isHittable {
-            done.tap()
+        // A search field has no bar above its keyboard. Its "search" key closes the keyboard, and the search
+        // text stays.
+        let search = keyboard.buttons.matching(NSPredicate(format: "label ==[c] %@", "search")).firstMatch
+        for key in [done, search] where key.exists && key.isHittable {
+            key.tap()
             _ = keyboard.waitForNonExistence(timeout: 5)
+            return
         }
     }
 
