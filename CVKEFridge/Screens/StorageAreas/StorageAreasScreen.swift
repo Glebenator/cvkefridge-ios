@@ -73,7 +73,7 @@ struct StorageAreasScreen: View {
                     .accessibilityIdentifier("no_created_areas")
             }
         }
-        .animation(Motion.list, value: shown.map(\.area.id))
+        .motion(Motion.list, value: shown.map(\.area.id))
         Section {
             Button {
                 edit(nil)

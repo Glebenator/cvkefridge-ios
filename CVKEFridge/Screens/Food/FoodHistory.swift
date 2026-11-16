@@ -39,7 +39,7 @@ struct FoodHistorySection: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(shown, id: \.changeId) { line in
                     FoodHistoryRow(line: line, today: today)
-                        .transition(.opacity)
+                        .transition(.fade)
                 }
             }
             if shown.count < lines.count {

@@ -33,7 +33,7 @@ struct FilterChip: View {
                 if isOn {
                     Image(icon: .check)
                         .font(.footnote.weight(.bold))
-                        .transition(.scale.combined(with: .opacity))
+                        .transition(.scaleFade())
                 }
                 Text(title)
                 if let count {

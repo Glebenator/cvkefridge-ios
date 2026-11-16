@@ -198,7 +198,7 @@ struct ScanSheet: View {
                         if let focusMark {
                             FocusMarkView(mark: focusMark)
                                 .id(focusMark.id)
-                                .transition(.opacity)
+                                .transition(.fade)
                         }
                     }
                 }
@@ -245,7 +245,7 @@ struct ScanSheet: View {
                     )
                     .haptic(.selection, trigger: camera.lightOn)
                     .accessibilityIdentifier("torch")
-                    .transition(.opacity)
+                    .transition(.fade)
                 }
             }
             .padding(.horizontal, Space.screenMargin)

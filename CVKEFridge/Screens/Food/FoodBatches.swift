@@ -97,7 +97,7 @@ struct BatchCard: View {
                 StillGoodRow(batchId: batch.id, expiry: expiry.date, today: today, actions: actions)
                     .padding(.trailing, Space.s4)
                     .padding(.bottom, Space.s3)
-                    .transition(.opacity)
+                    .transition(.fade)
             }
         }
         .padding(.leading, Space.s4)
@@ -114,7 +114,7 @@ struct BatchCard: View {
                 Text("Use first")
                     .font(Typography.label)
                     .foregroundStyle(Palette.primary)
-                    .transition(.opacity)
+                    .transition(.fade)
             }
             Text(verbatim: Wording.quantity(batch.quantity, unit: unit))
                 .font(Typography.cardTitle)

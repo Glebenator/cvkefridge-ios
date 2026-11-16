@@ -112,7 +112,7 @@ private struct FoodPhoto: View {
                             .scaledToFill()
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
-                            .transition(.opacity)
+                            .transition(.fade)
                     }
                 }
                 .clipShape(Radius.shape(Radius.large))
