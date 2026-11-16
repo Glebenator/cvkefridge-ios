@@ -1,7 +1,7 @@
 import CVKEFridgeCore
 import SwiftUI
 
-/// The icons of the app. Each is an SF Symbol, so it follows the text size and the text weight.
+/// The icons of the app. Each is a symbol image, so it follows the text size and the text weight.
 ///
 /// Each case has the symbol for the drawable of the same use in the Android app (`res/drawable/ic_*.xml`). Use a case,
 /// not a symbol name, so that one thing has one icon on each screen.
@@ -12,7 +12,10 @@ import SwiftUI
 /// Image(icon: .home, filled: isSelected)
 /// ```
 ///
-/// SF Symbols has no cheese, no steak, and no bread. Dairy is a drop, meat is a fish, and bakery is a cake.
+/// SF Symbols has no cheese, no steak, and no slice of bread. Dairy, meat, and bakery have symbols of the app in the
+/// asset catalog (`Assets.xcassets/Symbols`), with the same subjects as the Android drawables. They are symbol
+/// templates, so they get the tint, the size, and the weight as an SF Symbol does. `scripts/make-category-symbols.py`
+/// makes them. Each other icon is an SF Symbol.
 enum AppIcon: CaseIterable, Sendable {
     // The tabs. Android: ic_home, ic_fridge, ic_history, ic_settings.
     case home
@@ -120,7 +123,17 @@ enum AppIcon: CaseIterable, Sendable {
     case freezer
     case pantry
 
-    /// The name of the SF Symbol in its usual form. Tiles, lists, and buttons use this form.
+    /// True when the symbol is a symbol of the app in the asset catalog. False for an SF Symbol.
+    var isCustom: Bool {
+        switch self {
+        case .dairy, .meat, .bakery: true
+        default: false
+        }
+    }
+
+    /// The name of the symbol in its usual form. Tiles, lists, and buttons use this form. It is the name of an SF
+    /// Symbol, or the name of a symbol in the asset catalog when `isCustom` is true. Use `Image(icon:)` or
+    /// `Label(_:icon:)`: they know where the symbol is.
     var symbol: String {
         switch self {
         case .home: "house"
@@ -162,11 +175,11 @@ enum AppIcon: CaseIterable, Sendable {
         case .offline: "wifi.slash"
         case .serviceUnavailable: "icloud.slash"
         case .produce: "carrot"
-        case .dairy: "drop"
-        case .meat: "fish"
+        case .dairy: "cvke.cheese"
+        case .meat: "cvke.steak"
         case .condiment: "waterbottle"
         case .beverage: "mug"
-        case .bakery: "birthday.cake"
+        case .bakery: "cvke.bread.slice"
         case .leftovers: "takeoutbag.and.cup.and.straw"
         case .otherFood: "fork.knife"
         case .freezer: "snowflake"
@@ -198,14 +211,22 @@ enum AppIcon: CaseIterable, Sendable {
 extension Image {
     /// The image of an icon of the app.
     init(icon: AppIcon, filled: Bool = false) {
-        self.init(systemName: icon.symbol(filled: filled))
+        if icon.isCustom {
+            self.init(icon.symbol(filled: filled))
+        } else {
+            self.init(systemName: icon.symbol(filled: filled))
+        }
     }
 }
 
 extension Label where Title == Text, Icon == Image {
     /// A label with an icon of the app. The title is a key of the string catalog.
     init(_ title: LocalizedStringKey, icon: AppIcon, filled: Bool = false) {
-        self.init(title, systemImage: icon.symbol(filled: filled))
+        if icon.isCustom {
+            self.init(title, image: icon.symbol(filled: filled))
+        } else {
+            self.init(title, systemImage: icon.symbol(filled: filled))
+        }
     }
 
     /// A label with an icon of the app. The title is text of the person or text that is already localized.

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- cvke.bread.slice: a symbol of CVKE Fridge. scripts/make-category-symbols.py makes this file. Do not edit it. -->
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="3300" height="2200">
+ <g id="Notes">
+  <rect height="2200" id="artboard" style="fill:white;opacity:1" width="3300" x="0" y="0"/>
+  <text id="template-version" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1933)">Template v.3.0</text>
+  <text id="descriptive-name" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1969)">cvke.bread.slice</text>
+ </g>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.541" y2="1055.541"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.541" y2="1485.541"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="553" x2="553" y1="600" y2="720"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="649.32" x2="649.32" y1="600" y2="720"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1433" x2="1433" y1="600" y2="720"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1529.32" x2="1529.32" y1="600" y2="720"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2893" x2="2893" y1="600" y2="720"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2989.32" x2="2989.32" y1="600" y2="720"/>
+ </g>
+ <g id="Symbols">
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 560 696)">
+   <path d="M0 -51.19 C0 -63.715 10.154 -73.87 22.68 -73.87 L59.64 -73.87 C72.166 -73.87 82.32 -63.715 82.32 -51.19 L82.32 -49.783 C82.32 -46.889 81.324 -44.084 79.499 -41.838 L72.528 -33.258 C71.798 -32.36 71.4 -31.238 71.4 -30.08 L71.4 -7.509 C71.4 -1.479 66.511 3.41 60.48 3.41 L21.84 3.41 C15.809 3.41 10.92 -1.479 10.92 -7.509 L10.92 -30.08 C10.92 -31.238 10.522 -32.36 9.792 -33.258 L2.821 -41.838 C0.996 -44.084 0 -46.889 0 -49.783 Z M1.89 -49.783 C1.89 -47.323 2.737 -44.938 4.288 -43.029 L11.258 -34.45 C12.262 -33.215 12.81 -31.672 12.81 -30.08 L12.81 -7.509 C12.81 -2.522 16.853 1.52 21.84 1.52 L60.48 1.52 C65.467 1.52 69.51 -2.522 69.51 -7.509 L69.51 -30.08 C69.51 -31.672 70.058 -33.215 71.062 -34.45 L78.032 -43.029 C79.583 -44.938 80.43 -47.323 80.43 -49.783 L80.43 -51.19 C80.43 -62.671 71.122 -71.98 59.64 -71.98 L22.68 -71.98 C11.198 -71.98 1.89 -62.671 1.89 -51.19 Z"/>
+  </g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1440 696)">
+   <path d="M0 -51.19 C0 -63.715 10.154 -73.87 22.68 -73.87 L59.64 -73.87 C72.166 -73.87 82.32 -63.715 82.32 -51.19 L82.32 -49.783 C82.32 -46.889 81.324 -44.084 79.499 -41.838 L72.528 -33.258 C71.798 -32.36 71.4 -31.238 71.4 -30.08 L71.4 -7.509 C71.4 -1.479 66.511 3.41 60.48 3.41 L21.84 3.41 C15.809 3.41 10.92 -1.479 10.92 -7.509 L10.92 -30.08 C10.92 -31.238 10.522 -32.36 9.792 -33.258 L2.821 -41.838 C0.996 -44.084 0 -46.889 0 -49.783 Z M6.51 -49.783 C6.51 -48.384 6.991 -47.028 7.873 -45.943 L14.844 -37.363 C16.517 -35.305 17.43 -32.733 17.43 -30.08 L17.43 -7.51 C17.43 -5.074 19.404 -3.1 21.84 -3.1 L60.48 -3.1 C62.916 -3.1 64.89 -5.074 64.89 -7.51 L64.89 -30.08 C64.89 -32.733 65.803 -35.305 67.476 -37.363 L74.447 -45.943 C75.329 -47.028 75.81 -48.384 75.81 -49.783 L75.81 -51.19 C75.81 -60.12 68.57 -67.359 59.64 -67.359 L22.68 -67.359 C13.75 -67.359 6.51 -60.12 6.51 -51.19 Z"/>
+  </g>
+  <g id="Black-S" transform="matrix(1 0 0 1 2900 696)">
+   <path d="M0 -51.19 C0 -63.715 10.154 -73.87 22.68 -73.87 L59.64 -73.87 C72.166 -73.87 82.32 -63.715 82.32 -51.19 L82.32 -49.783 C82.32 -46.889 81.324 -44.084 79.499 -41.838 L72.528 -33.258 C71.798 -32.36 71.4 -31.238 71.4 -30.08 L71.4 -7.509 C71.4 -1.479 66.511 3.41 60.48 3.41 L21.84 3.41 C15.809 3.41 10.92 -1.479 10.92 -7.509 L10.92 -30.08 C10.92 -31.238 10.522 -32.36 9.792 -33.258 L2.821 -41.838 C0.996 -44.084 0 -46.889 0 -49.783 Z M10.5 -49.783 C10.5 -49.301 10.666 -48.833 10.97 -48.459 L17.941 -39.88 C20.191 -37.109 21.42 -33.649 21.42 -30.08 L21.42 -7.51 C21.42 -7.278 21.608 -7.09 21.84 -7.09 L60.48 -7.09 C60.712 -7.09 60.9 -7.278 60.9 -7.51 L60.9 -30.08 C60.9 -33.649 62.129 -37.109 64.379 -39.88 L71.35 -48.459 C71.654 -48.833 71.82 -49.301 71.82 -49.783 L71.82 -51.19 C71.82 -57.916 66.367 -63.37 59.64 -63.37 L22.68 -63.37 C15.953 -63.37 10.5 -57.916 10.5 -51.19 Z"/>
+  </g>
+ </g>
+</svg>

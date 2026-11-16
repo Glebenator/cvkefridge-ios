@@ -90,11 +90,12 @@ cvkefridge-ios/
     App/                          App entry
     Screens/                      The start screen
     Design/                       Colour tokens and spacing
-    Resources/                    App icon, accent colour, string catalog, and privacy manifest
+    Resources/                    App icon, accent colour, category symbols, string catalog, and privacy manifest
   CVKEFridgeUITests/              The UI test
   scripts/
     update-spec.py                Updates and checks the copy in spec/
     export-captures.py            Screenshot export for CI
+    make-category-symbols.py      Makes the symbols of dairy, meat, and bakery in the asset catalog
 ```
 
 ## Shared specification
