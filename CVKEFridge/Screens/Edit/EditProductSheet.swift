@@ -88,7 +88,8 @@ private struct EditProductFormView: View {
                     ) {
                         Button("Change the unit") { perform() }
                             .accessibilityIdentifier("unit_change_confirm")
-                        Button("Keep editing", role: .cancel) {}
+                        // With the role `cancel`, an iPhone does not show the button. See `discardQuestion`.
+                        Button("Keep editing") {}
                     } message: {
                         Text(verbatim: example?.keepsNumbers ?? UnitChangeExample.keepsNumbersPlain)
                     }
