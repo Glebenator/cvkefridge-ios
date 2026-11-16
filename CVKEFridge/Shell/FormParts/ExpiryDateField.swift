@@ -49,10 +49,12 @@ struct ExpiryDateField: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s1 + 2) {
-            Button {
-                picking = true
-            } label: {
+        // The words below the field are a part of the button. The row is one element for VoiceOver and for a tap:
+        // with the largest text, the words are most of the row, and a tap on them opens the calendar also.
+        Button {
+            picking = true
+        } label: {
+            VStack(alignment: .leading, spacing: Space.s1 + 2) {
                 LabeledContent {
                     HStack(spacing: Space.s2) {
                         Text(verbatim: value)
@@ -64,16 +66,18 @@ struct ExpiryDateField: View {
                 } label: {
                     Text("Expiry date")
                 }
-                .contentShape(.rect)
+                Text(verbatim: help)
+                    .font(Typography.caption)
+                    .foregroundStyle(Palette.onSurfaceVariant)
+                    .multilineTextAlignment(.leading)
+                    .accessibilityHidden(true)
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(Text(verbatim: help))
-            .accessibilityIdentifier("field_expiry")
-            Text(verbatim: help)
-                .font(Typography.caption)
-                .foregroundStyle(Palette.onSurfaceVariant)
-                .accessibilityHidden(true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text(verbatim: help))
+        .accessibilityIdentifier("field_expiry")
         .sheet(isPresented: $picking) {
             DatePickerSheet(
                 "Expiry date",

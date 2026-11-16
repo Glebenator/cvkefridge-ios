@@ -39,11 +39,16 @@ struct FoodCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        // With an accessibility text size, the name has two lines and the category is below the other lines.
+        // With an accessibility text size, the name has two lines and the category is below the other lines. The
+        // picture is above the text, so that the text has the width of the card: next to the picture, a word of
+        // the days left broke in two ("Ex-pires").
         let large = dynamicTypeSize.isAccessibilitySize
+        let layout = large
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Space.s2))
+            : AnyLayout(HStackLayout(spacing: Space.s3))
         HStack(spacing: 0) {
             Button(action: onOpen) {
-                HStack(spacing: Space.s3) {
+                layout {
                     ProductImage(productId: row.productId, category: row.category)
                     VStack(alignment: .leading, spacing: 2) {
                         // The category is at the end of the line of the name, so the days left have all of the

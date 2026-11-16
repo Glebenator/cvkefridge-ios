@@ -21,6 +21,7 @@ struct MyFridgeScreen: View {
     @Environment(FridgeModel.self) private var model
     @Environment(Navigator.self) private var navigator
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var sortKey = SortKey.expiry
     @State private var ascending = SortKey.expiry.ascendingFirst
@@ -97,7 +98,14 @@ struct MyFridgeScreen: View {
         .background(Palette.surface.ignoresSafeArea())
         .navigationTitle("My Fridge")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $navigator.myFridgeFilter.query, isPresented: $searching, prompt: Text("Search items"))
+        .searchable(
+            text: $navigator.myFridgeFilter.query,
+            isPresented: $searching,
+            // With an accessibility text size, the system starts with the search field above the top of the list,
+            // where a person does not see it. The field then always shows.
+            placement: dynamicTypeSize.isAccessibilitySize ? .navigationBarDrawer(displayMode: .always) : .automatic,
+            prompt: Text("Search items")
+        )
         .toolbar { toolbar }
         .takeQuantity($take)
         .onChange(of: view?.areaId) { _, areaId in

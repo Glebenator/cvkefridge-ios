@@ -31,6 +31,7 @@ struct SettingsScreen: View {
     @Environment(FridgeModel.self) private var model
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The alert of the switch, or nil.
     @State private var dialog: AccessDialog?
@@ -117,13 +118,8 @@ struct SettingsScreen: View {
                     ReminderTimePicker(minuteOfDay: settings.time.minuteOfDay) { minuteOfDay in
                         model.setReminderTime(minuteOfDay: minuteOfDay)
                     }
-                    Picker("Remind me", selection: leadBinding(settings)) {
-                        ForEach(Array(ReminderRules.leadDayChoices), id: \.self) { days in
-                            Text(Wording.reminderLead(days: days)).tag(days)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("reminders_lead")
+                    leadPicker(settings)
+                        .accessibilityIdentifier("reminders_lead")
                     if model.notificationAccess == .allowed {
                         Text(nextReminder(settings))
                             .accessibilityIdentifier("reminders_next")
@@ -136,6 +132,39 @@ struct SettingsScreen: View {
                     Text("The reminder comes only when food needs attention. iOS sends it at this time, but a Focus or the Scheduled Summary can hold it until later.")
                 }
             }
+        }
+    }
+
+    /// The lead time, as a menu. With an accessibility text size, the name and the value are one below the other,
+    /// and each has all of the width: the menu picker of the system cuts the name and the last line of the value
+    /// there.
+    @ViewBuilder
+    private func leadPicker(_ settings: ReminderSettings) -> some View {
+        let choices = Picker("Remind me", selection: leadBinding(settings)) {
+            ForEach(Array(ReminderRules.leadDayChoices), id: \.self) { days in
+                Text(Wording.reminderLead(days: days)).tag(days)
+            }
+        }
+        if dynamicTypeSize.isAccessibilitySize {
+            Menu {
+                choices.pickerStyle(.inline)
+            } label: {
+                VStack(alignment: .leading, spacing: Space.s1) {
+                    Text("Remind me")
+                        .foregroundStyle(Palette.onSurface)
+                    HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
+                        Text(Wording.reminderLead(days: settings.leadDays))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .imageScale(.small)
+                            .accessibilityHidden(true)
+                    }
+                }
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
+            }
+        } else {
+            choices.pickerStyle(.menu)
         }
     }
 

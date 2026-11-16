@@ -125,6 +125,17 @@
     "%@ with no unit" : {
       "comment" : "A sum of quantities of food that has no unit. The value is a number.\nA sum of the quantities of foods that have no unit."
     },
+    "%@ %@" : {
+      "comment" : "The icon of the status of a food, and its days left.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
     "%@%@ %@" : {
       "comment" : "The quantity of a food, the icon of its status, and its days left.",
       "localizations" : {
