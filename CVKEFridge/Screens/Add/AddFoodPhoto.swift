@@ -23,7 +23,12 @@ struct AddFoodPhotoSection: View {
             PhotoSourceButtons(
                 hasPhoto: model.formPhoto(token) != nil,
                 isBusy: photo == .making,
-                onPicture: { model.makeFormPhoto(token: token, picture: $0) },
+                onPictureStart: {
+                    // "Save" is off from now, also while the picture loads from iCloud. A picture that arrives after
+                    // the form started its next entry does nothing.
+                    let load = model.startFormPhoto(token: token)
+                    return { model.makeFormPhoto(token: token, load: load, picture: $0) }
+                },
                 onRemove: { model.discardFormPhoto(token: token) }
             )
         } header: {

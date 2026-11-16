@@ -11,6 +11,11 @@ struct ModelFixture {
     let photos = RecordingPhotoService()
     let model: FridgeModel
 
+    /// - Parameter changes: The change log at the start.
+    init(changes: [Change]) throws {
+        try self.init(changeLogText: changes.map { ChangeCodec.encode($0) + "\n" }.joined())
+    }
+
     /// - Parameter changeLogText: The text of the change log at the start, or nil for no file.
     init(changeLogText: String? = nil) throws {
         folder = FileManager.default.temporaryDirectory.appending(path: "model-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -63,15 +68,44 @@ func eventually(_ condition: @MainActor () async -> Bool) async -> Bool {
     return await condition()
 }
 
-/// A photo service that records the calls. `prepare` waits until the test calls `finishPrepare`.
+/// A photo service that records the calls. `prepare` waits until the test calls `finishPrepare`. After
+/// `holdDiscards()`, each `discard` waits until the test calls `releaseDiscards()`.
 actor RecordingPhotoService: PhotoService {
     private(set) var cleanCalls: [Set<String>] = []
     private(set) var discarded: [PreparedPhoto] = []
+    /// The prepared photos that a product got, by the identifier of the product.
+    private(set) var adopted: [String: PreparedPhoto] = [:]
+    /// The number of `adopt` calls that failed.
+    private(set) var failedAdopts = 0
+    /// The number of the next `adopt` calls that fail.
+    private var adoptFailures = 0
     private var waiting: [CheckedContinuation<PreparedPhoto, any Error>] = []
     private var prepared = 0
+    private var holdsDiscards = false
+    private var heldDiscards: [CheckedContinuation<Void, Never>] = []
 
     /// The number of `prepare` calls that wait.
     var waitingPrepares: Int { waiting.count }
+    /// The number of `discard` calls that wait.
+    var waitingDiscards: Int { heldDiscards.count }
+
+    /// The next `count` calls of `adopt` fail, as when the photo cannot be written.
+    func failAdopts(_ count: Int) {
+        adoptFailures = count
+    }
+
+    func holdDiscards() {
+        holdsDiscards = true
+    }
+
+    func releaseDiscards() {
+        holdsDiscards = false
+        let held = heldDiscards
+        heldDiscards = []
+        for continuation in held {
+            continuation.resume()
+        }
+    }
 
     /// Ends the oldest `prepare` that waits, with a new prepared photo.
     @discardableResult
@@ -112,10 +146,19 @@ actor RecordingPhotoService: PhotoService {
     }
 
     func adopt(productId: String, prepared: PreparedPhoto) async throws -> ProductPhoto {
-        ProductPhoto(url: URL(filePath: "/tmp/\(productId).jpg"))
+        if adoptFailures > 0 {
+            adoptFailures -= 1
+            failedAdopts += 1
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+        adopted[productId] = prepared
+        return ProductPhoto(url: URL(filePath: "/tmp/\(productId).jpg"))
     }
 
     func discard(_ prepared: PreparedPhoto) async {
+        if holdsDiscards {
+            await withCheckedContinuation { heldDiscards.append($0) }
+        }
         discarded.append(prepared)
     }
 

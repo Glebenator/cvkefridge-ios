@@ -10,6 +10,9 @@
     "%@ added" : {
       "comment" : "The value is the name of a food."
     },
+    "%@ added. Couldn't save the photo." : {
+      "comment" : "A message after the add form saved a food. The value is the name of the food. The message has Try again."
+    },
     "%@ and %lld more" : {
       "comment" : "A list of names of food, and the number of foods that are not in the list.",
       "localizations" : {

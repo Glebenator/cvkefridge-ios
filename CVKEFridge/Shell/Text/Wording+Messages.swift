@@ -14,6 +14,11 @@ extension NoticeText {
                 localized: "\(count) changes in the inventory file can't be read. The other food is here.",
                 comment: "A message after the start. The catalog has the plural forms."
             )
+        case .photoNotAdded(let name):
+            return String(
+                localized: "\(name) added. Couldn't save the photo.",
+                comment: "A message after the add form saved a food. The value is the name of the food. The message has Try again."
+            )
         case .custom(let text, _):
             return text
         }
@@ -24,7 +29,7 @@ extension NoticeText {
         switch self {
         case .message(let message):
             return Wording.kind(of: message)
-        case .changesNotRead:
+        case .changesNotRead, .photoNotAdded:
             return .problem
         case .custom(_, let kind):
             return kind

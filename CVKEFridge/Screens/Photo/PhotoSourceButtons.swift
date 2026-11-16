@@ -15,11 +15,14 @@ import SwiftUI
 ///     onPicture: { model.setPhoto(productId: id, picture: $0) },
 ///     onRemove: { model.removePhoto(productId: id) }
 /// )
-/// // The add form
+/// // The add form: the model knows about the load of the picture at once, so "Save" is off during the load
 /// PhotoSourceButtons(
 ///     hasPhoto: model.formPhoto(token) != nil,
 ///     isBusy: model.formPhotos[token] == .making,
-///     onPicture: { model.makeFormPhoto(token: token, picture: $0) },
+///     onPictureStart: {
+///         let load = model.startFormPhoto(token: token)
+///         return { model.makeFormPhoto(token: token, load: load, picture: $0) }
+///     },
 ///     onRemove: { model.discardFormPhoto(token: token) }
 /// )
 /// ```
@@ -40,7 +43,8 @@ import SwiftUI
 struct PhotoSourceButtons: View {
     private let hasPhoto: Bool
     private let isBusy: Bool
-    private let onPicture: (PictureSource) -> Void
+    /// Called when the person selected or took a picture, before its bytes load. The result gets the picture.
+    private let onPictureStart: () -> (PictureSource) -> Void
     private let onRemove: (() -> Void)?
 
     @Environment(FridgeModel.self) private var model
@@ -74,9 +78,21 @@ struct PhotoSourceButtons: View {
         onPicture: @escaping (PictureSource) -> Void,
         onRemove: (() -> Void)? = nil
     ) {
+        self.init(hasPhoto: hasPhoto, isBusy: isBusy, onPictureStart: { onPicture }, onRemove: onRemove)
+    }
+
+    /// - Parameters:
+    ///   - onPictureStart: The person selected or took a picture, and its bytes load now. The result gets the
+    ///     picture when the bytes are there. The add form uses it, so that the model knows about the load at once.
+    init(
+        hasPhoto: Bool,
+        isBusy: Bool = false,
+        onPictureStart: @escaping () -> (PictureSource) -> Void,
+        onRemove: (() -> Void)? = nil
+    ) {
         self.hasPhoto = hasPhoto
         self.isBusy = isBusy
-        self.onPicture = onPicture
+        self.onPictureStart = onPictureStart
         self.onRemove = onRemove
     }
 
@@ -248,7 +264,7 @@ struct PhotoSourceButtons: View {
     private func choose() {
         #if DEBUG
         if TestPictures.kind != nil {
-            onPicture(.data(TestPictures.next()))
+            onPictureStart()(.data(TestPictures.next()))
             return
         }
         #endif
@@ -289,7 +305,7 @@ struct PhotoSourceButtons: View {
     private func openCamera() {
         #if DEBUG
         if TestPictures.kind != nil {
-            onPicture(.data(TestPictures.next()))
+            onPictureStart()(.data(TestPictures.next()))
             return
         }
         #endif
@@ -303,23 +319,26 @@ struct PhotoSourceButtons: View {
     }
 
     /// Loads the bytes of the selected picture, off the main actor. A picture that is in iCloud can take some time,
-    /// so the words "Adding the photo…" show.
+    /// so the words "Adding the photo…" show. The receiver of the picture is fixed before the load: a form that
+    /// starts its next entry meanwhile does not get the picture.
     private func load(_ item: PhotosPickerItem) {
+        let receive = onPictureStart()
         loading = true
         Task {
             let data = try? await item.loadTransferable(type: Data.self)
             loading = false
-            onPicture(.data(data ?? Data()))
+            receive(.data(data ?? Data()))
         }
     }
 
     /// Makes the bytes of the picture of the camera, off the main actor.
     private func use(_ image: UIImage) {
+        let receive = onPictureStart()
         loading = true
         Task {
             let data = await CameraPicture.data(of: image)
             loading = false
-            onPicture(.data(data ?? Data()))
+            receive(.data(data ?? Data()))
         }
     }
 }

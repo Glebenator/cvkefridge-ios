@@ -50,6 +50,9 @@ enum NoticeText: Hashable, Sendable {
     case message(NoticeMessage)
     /// Some lines of the change log are not a change, and the app did not read them. `count` is their number.
     case changesNotRead(count: Int)
+    /// The add form saved the food with the `name`, but the food could not get the photo of the form. The message has
+    /// "Try again".
+    case photoNotAdded(name: String)
     /// A text that a screen made, already in the language of the person, with its kind.
     case custom(String, NoticeKind)
 }
@@ -102,12 +105,18 @@ struct ShowRequest: Equatable, Sendable {
     let freshness: Set<Freshness>
 }
 
-/// The photo of an add form while the app makes it from a picture, and after.
+/// The photo of an add form while the picture loads and the app makes the photo from it, and after.
 enum FormPhoto: Equatable, Sendable {
-    /// The app makes the photo now. "Save" is off until it is ready.
+    /// The picture loads, or the app makes the photo now. "Save" is off until it is ready.
     case making
     /// The photo is ready. `url` is its file, to show it, or nil when the file is not there.
     case ready(PreparedPhoto, url: URL?)
+}
+
+/// A picture that loads for an add form (`FridgeModel.startFormPhoto(token:)`). Only the newest load of the form can
+/// give the form its photo.
+struct FormPhotoLoad: Equatable, Sendable {
+    let generation: Int
 }
 
 /// The reminder settings as the model knows them.

@@ -130,6 +130,8 @@ final class FridgeModel {
         case restorePhoto(RemovedPhoto)
         /// Brings back the photo that a product had before a change of its photo.
         case undoPhotoChange(PhotoChange, productId: String)
+        /// Gives the product the prepared photo of the add form again, after it could not get it.
+        case retryPhoto(PreparedPhoto, productId: String, name: String)
         case custom(@MainActor () -> Void)
     }
 
@@ -141,6 +143,16 @@ final class FridgeModel {
         case removed(RemovedPhoto)
         /// The earlier photo of a product whose photo the action of the message changed.
         case changed(PhotoChange)
+        /// The prepared photo of an add form that the saved product could not get. "Try again" needs it.
+        case prepared(PreparedPhoto)
+
+        /// True when the protection keeps this prepared photo.
+        func protects(_ photo: PreparedPhoto) -> Bool {
+            if case .prepared(let protected) = self {
+                return protected == photo
+            }
+            return false
+        }
     }
 
     @ObservationIgnored private let changeLog: ChangeLogStore
@@ -175,12 +187,16 @@ final class FridgeModel {
     @ObservationIgnored private var formPhotoImports: [String: FormPhotoImport] = [:]
     /// The number of the newest photo import of an add form.
     @ObservationIgnored private var formPhotoGeneration = 0
+    /// The prepared photos of the add forms that a save owns, from the call of `perform` to the end of the save. The
+    /// form does not delete them.
+    @ObservationIgnored private var photosInSave: Set<PreparedPhoto> = []
 
     /// A photo import of an add form that did not end.
     private struct FormPhotoImport {
         /// The number of the import. Only the import with the number in `formPhotoImports` can change the form.
         let generation: Int
-        let task: Task<Void, Never>
+        /// The work that makes the photo, or nil while the picture loads (`startFormPhoto(token:)`).
+        let task: Task<Void, Never>?
         /// The photo that the form had before the import, or nil.
         let earlier: FormPhoto?
     }
@@ -338,7 +354,9 @@ final class FridgeModel {
     ///
     /// - Parameters:
     ///   - formToken: A text that names one form, for example a UUID that the form makes when it opens.
-    ///   - photo: The photo of the add form. The product gets it after the write.
+    ///   - photo: The photo of the add form. The product gets it after the write. From this call, the save owns the
+    ///     photo file: `discardFormPhoto(token:)` does not delete it while the write runs. When the write fails, the
+    ///     form gets the photo back, or the file goes when the form does not show it now.
     /// - Returns: False when the call did nothing, because the form already saves.
     @discardableResult
     func perform(_ action: InventoryAction, formToken: String? = nil, photo: PreparedPhoto? = nil) -> Bool {
@@ -350,41 +368,70 @@ final class FridgeModel {
                 formWrites[formToken] = .saving
             }
         }
+        if let photo {
+            photosInSave.insert(photo)
+        }
         enqueue {
-            let result = await self.write(action)
-            switch result {
-            case .done(let changeIds, let message, let undoable, let productId, let removedProducts):
-                // A product that is not saved gets no photo.
-                if let photo, let productId {
-                    await self.adopt(photo, productId: productId, formToken: formToken)
-                }
-                if let formToken {
-                    self.formWrites[formToken] = .saved
-                }
-                if let message {
-                    // "Undo" can bring back a product that the action deleted. Its photo stays until then.
-                    self.post(
-                        .message(message),
-                        action: undoable ? .undo : nil,
-                        operation: undoable ? .undo(changeIds: changeIds) : nil,
-                        protection: undoable && !removedProducts.isEmpty ? .products(removedProducts) : nil
-                    )
-                }
-            case .refused(let reason):
-                if let formToken {
-                    self.formWrites[formToken] = .failed(reason)
-                } else {
-                    self.post(.message(.refused(reason)))
-                }
-            case .failed:
-                if let formToken {
-                    self.formWrites[formToken] = .failed(nil)
-                } else {
-                    self.post(.message(.saveFailed), action: .tryAgain, operation: .retry(action))
-                }
-            }
+            await self.run(action, formToken: formToken, photo: photo)
         }
         return true
+    }
+
+    /// Writes the action and gives its result: the state of the form, or a message. It runs in the queue.
+    private func run(_ action: InventoryAction, formToken: String?, photo: PreparedPhoto?) async {
+        let result = await write(action)
+        switch result {
+        case .done(let changeIds, let message, let undoable, let productId, let removedProducts):
+            // A product that is not saved gets no photo.
+            var photoAdded = true
+            if let photo {
+                if let productId {
+                    photoAdded = await adopt(photo, productId: productId, formToken: formToken)
+                } else {
+                    await endSave(of: photo, formToken: formToken)
+                }
+            }
+            if let formToken {
+                formWrites[formToken] = .saved
+            }
+            if let photo, let productId, !photoAdded {
+                // The food is in the inventory, and its photo is not. The message says so, and the prepared photo
+                // stays for "Try again" until the message closes. It is not replaced by the message of the add.
+                let name = loaded?.inventory.products.first(where: { $0.id == productId })?.name ?? ""
+                post(
+                    .photoNotAdded(name: name),
+                    action: .tryAgain,
+                    operation: .retryPhoto(photo, productId: productId, name: name),
+                    protection: .prepared(photo)
+                )
+            } else if let message {
+                // "Undo" can bring back a product that the action deleted. Its photo stays until then.
+                post(
+                    .message(message),
+                    action: undoable ? .undo : nil,
+                    operation: undoable ? .undo(changeIds: changeIds) : nil,
+                    protection: undoable && !removedProducts.isEmpty ? .products(removedProducts) : nil
+                )
+            }
+        case .refused(let reason):
+            if let photo {
+                await endSave(of: photo, formToken: formToken)
+            }
+            if let formToken {
+                formWrites[formToken] = .failed(reason)
+            } else {
+                post(.message(.refused(reason)))
+            }
+        case .failed:
+            if let photo {
+                await endSave(of: photo, formToken: formToken)
+            }
+            if let formToken {
+                formWrites[formToken] = .failed(nil)
+            } else {
+                post(.message(.saveFailed), action: .tryAgain, operation: .retry(action))
+            }
+        }
     }
 
     /// The state of the write of the form with the `token`, or nil when the form does not save and has no result.
@@ -506,6 +553,21 @@ final class FridgeModel {
             enqueue {
                 self.photos[productId] = await self.photoService.undo(change, productId: productId)
             }
+        case .retryPhoto(let photo, let productId, let name):
+            // This runs before the close of the message, which is in the queue after it.
+            enqueue {
+                do {
+                    self.photos[productId] = try await self.photoService.adopt(productId: productId, prepared: photo)
+                } catch {
+                    // The new message keeps the prepared photo for its own "Try again".
+                    self.post(
+                        .photoNotAdded(name: name),
+                        action: .tryAgain,
+                        operation: .retryPhoto(photo, productId: productId, name: name),
+                        protection: .prepared(photo)
+                    )
+                }
+            }
         case .custom(let work):
             work()
         }
@@ -562,6 +624,12 @@ final class FridgeModel {
                 await self.photoService.release(removed)
             case .changed(let change):
                 await self.photoService.release(change)
+            case .prepared(let photo):
+                // A newer message for the same photo still needs it. After a "Try again" that worked, the file of the
+                // prepared photo is already gone, and the delete does nothing.
+                if !self.photoProtections.values.contains(where: { $0.protects(photo) }) {
+                    await self.photoService.discard(photo)
+                }
             }
             await self.cleanPhotos()
         }
@@ -621,18 +689,40 @@ final class FridgeModel {
     /// Each call starts a new import for the token. An import that a newer call or `discardFormPhoto(token:)`
     /// replaced does not change the form when it ends: it deletes its prepared file, and it shows no message.
     func makeFormPhoto(token: String, picture: PictureSource) {
+        makeFormPhoto(token: token, load: startFormPhoto(token: token), picture: picture)
+    }
+
+    /// The person selected or took a picture for the add form with the `token`, and its bytes load now, for example
+    /// from iCloud. From this call, the photo of the form is `making`: "Save" is off, and the form says why. Give the
+    /// result to `makeFormPhoto(token:load:picture:)` when the bytes are there.
+    ///
+    /// A newer call, a newer import, or `discardFormPhoto(token:)` replaces the load. For example, "Save and add
+    /// another" discards the photo of the saved food. The picture of a replaced load then does nothing, so it never
+    /// goes to the next food of the form.
+    func startFormPhoto(token: String) -> FormPhotoLoad {
         // The photo that the form shows when this import fails. A newer import keeps the photo of the import before
         // it, because the photo of the form while an import runs is `making`.
         let earlier: FormPhoto?
         if let running = formPhotoImports.removeValue(forKey: token) {
-            running.task.cancel()
+            running.task?.cancel()
             earlier = running.earlier
         } else {
             earlier = formPhotos[token]
         }
         formPhotoGeneration += 1
-        let generation = formPhotoGeneration
         formPhotos[token] = .making
+        formPhotoImports[token] = FormPhotoImport(generation: formPhotoGeneration, task: nil, earlier: earlier)
+        return FormPhotoLoad(generation: formPhotoGeneration)
+    }
+
+    /// Makes the photo of the add form from the picture of a load that `startFormPhoto(token:)` started. The picture
+    /// of a load that was replaced does nothing.
+    func makeFormPhoto(token: String, load: FormPhotoLoad, picture: PictureSource) {
+        guard let running = formPhotoImports[token], running.generation == load.generation, running.task == nil else {
+            return
+        }
+        let generation = load.generation
+        let earlier = running.earlier
         let task = Task {
             let prepared: PreparedPhoto
             do {
@@ -652,11 +742,14 @@ final class FridgeModel {
                 await photoService.discard(prepared)
                 return
             }
+            // The form shows the new photo before the earlier photo goes. There is no wait between the check above
+            // and this change, so a form that closes while the earlier photo goes finds the new photo and deletes it.
             formPhotoImports[token] = nil
-            if case .ready(let old, _) = earlier {
+            formPhotos[token] = .ready(prepared, url: url)
+            // A save that owns the earlier photo decides about its file.
+            if case .ready(let old, _) = earlier, !photosInSave.contains(old) {
                 await photoService.discard(old)
             }
-            formPhotos[token] = .ready(prepared, url: url)
         }
         formPhotoImports[token] = FormPhotoImport(generation: generation, task: task, earlier: earlier)
     }
@@ -671,11 +764,12 @@ final class FridgeModel {
 
     /// Deletes the photo of the add form with the `token`: the person removed it, or the form closed with no save.
     ///
-    /// An import that runs for the form stops. When it ends, it deletes its prepared file.
+    /// An import that runs for the form stops. When it ends, it deletes its prepared file. A picture that loads for
+    /// the form does nothing when it arrives. The photo of a save that runs stays: the save owns its file.
     func discardFormPhoto(token: String) {
         var discarded: [PreparedPhoto] = []
         if let running = formPhotoImports.removeValue(forKey: token) {
-            running.task.cancel()
+            running.task?.cancel()
             // The photo before the import is not on the form now, and no later import gets it.
             if case .ready(let photo, _) = running.earlier {
                 discarded.append(photo)
@@ -684,6 +778,7 @@ final class FridgeModel {
         if case .ready(let photo, _) = formPhotos.removeValue(forKey: token) {
             discarded.append(photo)
         }
+        discarded.removeAll { photosInSave.contains($0) }
         guard !discarded.isEmpty else {
             return
         }
@@ -705,16 +800,42 @@ final class FridgeModel {
         await photoService.image(at: photo.url, pixelSize: pixelSize)
     }
 
-    /// Gives the photo of the add form to the product that the form saved.
-    private func adopt(_ photo: PreparedPhoto, productId: String, formToken: String?) async {
+    /// Gives the photo of the add form to the product that the form saved. After the call, the form does not show
+    /// the photo. The result is false when the product could not get the photo: the prepared file then stays, and the
+    /// caller keeps it for "Try again".
+    private func adopt(_ photo: PreparedPhoto, productId: String, formToken: String?) async -> Bool {
+        var adopted = true
         do {
             photos[productId] = try await photoService.adopt(productId: productId, prepared: photo)
         } catch {
-            post(.message(.photoFailed))
+            adopted = false
         }
+        photosInSave.remove(photo)
         if let formToken, formPhoto(formToken) == photo {
             formPhotos[formToken] = nil
         }
+        return adopted
+    }
+
+    /// The save of a photo ended, and no product got the photo. The form keeps the photo for its next "Save". When
+    /// the form does not have the photo now (it closed, or it got a different photo), the file goes.
+    private func endSave(of photo: PreparedPhoto, formToken: String?) async {
+        photosInSave.remove(photo)
+        if let formToken, formHas(photo, token: formToken) {
+            return
+        }
+        await photoService.discard(photo)
+    }
+
+    /// True when the add form shows the photo, or shows it again when the import that runs fails.
+    private func formHas(_ photo: PreparedPhoto, token: String) -> Bool {
+        if formPhoto(token) == photo {
+            return true
+        }
+        if case .ready(let earlier, _) = formPhotoImports[token]?.earlier {
+            return earlier == photo
+        }
+        return false
     }
 
     /// Deletes the photos of the products that are not in the inventory, and the files that no photo needs. The
