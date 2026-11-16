@@ -324,41 +324,63 @@ private enum AccessDialog: Identifiable {
 ///
 /// The picker changes its own value while the person turns the wheels. The time goes to the settings when the wheels
 /// stop for a short time. So a turn of a wheel writes the settings one time, and a new value from the model does not
-/// move a wheel that the person turns.
+/// move a wheel that the person turns. When the screen closes before that time, the time goes to the settings at
+/// once.
 private struct ReminderTimePicker: View {
     /// The time of the settings.
     let minuteOfDay: Int
     let onChange: (Int) -> Void
 
     @State private var selection: Date?
+    /// The wait before the time of the wheels goes to the settings. Each new value of the wheels starts it again.
+    @State private var pending: Task<Void, Never>?
+
+    /// The time that the wheels stop before the time goes to the settings.
+    private static let settle = Duration.milliseconds(600)
 
     var body: some View {
         DatePicker(
             "Time",
-            selection: Binding(get: { selection ?? Self.instant(minuteOfDay) }, set: { selection = $0 }),
+            selection: Binding(get: { selection ?? Self.instant(minuteOfDay) }, set: { select($0) }),
             displayedComponents: .hourAndMinute
         )
         // The instant is a time in UTC, so that each time of the day exists on the picker.
         .environment(\.timeZone, .gmt)
         .accessibilityIdentifier("reminders_time")
-        .task(id: selection) {
-            guard let selection else {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(600))
-            if Task.isCancelled {
-                return
-            }
-            let selected = Self.minuteOfDay(selection)
-            if selected != minuteOfDay {
-                onChange(selected)
-            }
-        }
+        .onDisappear(perform: commit)
         .onChange(of: minuteOfDay) {
             // A change that the model saved, or that came from an other place, replaces the draft.
             if let selection, Self.minuteOfDay(selection) == minuteOfDay {
                 self.selection = nil
             }
+        }
+    }
+
+    /// Keeps a new value of the wheels, and starts the wait again. The wheels can give some values in one frame, so
+    /// the wait gets the value itself and does not read the state of the view.
+    private func select(_ instant: Date) {
+        selection = instant
+        pending?.cancel()
+        let selected = Self.minuteOfDay(instant)
+        let onChange = onChange
+        pending = Task {
+            try? await Task.sleep(for: Self.settle)
+            if !Task.isCancelled {
+                // The model writes nothing when the time is the time of the settings.
+                onChange(selected)
+            }
+        }
+    }
+
+    /// Gives the time of the wheels to the settings now, when the wait did not end.
+    private func commit() {
+        guard let pending else {
+            return
+        }
+        pending.cancel()
+        self.pending = nil
+        if let selection, Self.minuteOfDay(selection) != minuteOfDay {
+            onChange(Self.minuteOfDay(selection))
         }
     }
 
