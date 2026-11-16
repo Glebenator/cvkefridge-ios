@@ -209,6 +209,126 @@ struct AddAgainTests {
         #expect(jamAction?.expiry == nil)
     }
 
+    // MARK: A change of the unit (an iOS correction: the Android app does not convert the quantities)
+
+    /// The changes of a change of the unit of salt, as `InventoryActions.plan` makes them for the inventory of `log`.
+    private static func unitChange(_ log: [Change], to unit: MeasureUnit?) -> [ChangeBody] {
+        let inventory = Inventory.replay(log)
+        let salt = inventory.products.first(where: { $0.id == "salt" })!
+        let changed = Product(
+            id: salt.id,
+            name: salt.name,
+            category: salt.category,
+            unit: unit,
+            barcode: salt.barcode,
+            foodId: salt.foodId
+        )
+        let planned = InventoryActions.plan(
+            .saveProduct(.init(product: changed)),
+            inventory: inventory,
+            today: date("2026-11-12"),
+            newId: { "unused" }
+        )
+        return planned.plannedChanges!.bodies
+    }
+
+    /// The log after more bodies: each body is the next change `c<n>`.
+    private static func adding(_ bodies: [ChangeBody], to log: [Change]) -> [Change] {
+        log + bodies.enumerated().map { offset, body in
+            Change(id: "c\(log.count + offset)", at: log.count + offset, origin: "test", body: body)
+        }
+    }
+
+    private static func againQuantity(_ log: [Change]) -> Int? {
+        AddAgain.values(inventory: Inventory.replay(log), productId: "salt", changes: log).quantity
+    }
+
+    @Test func aBatchThatWasPartlyUsedBeforeAChangeFromGToKgGivesItsQuantityInKg() {
+        // 500 g, 100 g used, then the unit changes to kg. The batch has 0.4 kg, and 0.1 kg was used: 0.5 kg.
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 500_000, "fridge", "2026-11-01"),
+            .batchUsed(batchId: "s1", quantity: 100_000, date: Self.date("2026-11-02")),
+        ])
+        log = Self.adding(Self.unitChange(log, to: .kg), to: log)
+        #expect(Inventory.replay(log).batches.first?.quantity == 400)
+        #expect(Self.againQuantity(log) == 500)
+
+        // A use after the change is in kg: 0.1 kg more. The batch had 0.5 kg at its add.
+        log = Self.adding([.batchUsed(batchId: "s1", quantity: 100, date: Self.date("2026-11-03"))], to: log)
+        #expect(Self.againQuantity(log) == 500)
+    }
+
+    @Test func aBatchThatEndedBeforeAChangeFromGToKgGivesItsQuantityInKg() {
+        // An ended batch keeps the quantity 0, so the change of the unit does not edit it. Its history is in g.
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 250_000, "fridge", "2026-11-01"),
+            .batchUsed(batchId: "s1", quantity: 100_000, date: Self.date("2026-11-02")),
+            .batchThrownAway(batchId: "s1", quantity: 150_000, date: Self.date("2026-11-03")),
+        ])
+        log = Self.adding(Self.unitChange(log, to: .kg), to: log)
+        #expect(Self.againQuantity(log) == 250)
+    }
+
+    @Test func theUsualQuantityCountsEachBatchInTheUnitOfNow() {
+        // Two batches of 250 g before the change (one ended, one partly used) and one batch of 0.5 kg after it. The
+        // most common quantity is 0.25 kg.
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 250_000, "fridge", "2026-11-01"),
+            Self.batch("s2", "salt", 250_000, "fridge", "2026-11-02"),
+            .batchUsed(batchId: "s1", quantity: 250_000, date: Self.date("2026-11-03")),
+            .batchUsed(batchId: "s2", quantity: 50_000, date: Self.date("2026-11-04")),
+        ])
+        log = Self.adding(Self.unitChange(log, to: .kg), to: log)
+        log = Self.adding([Self.batch("s3", "salt", 500, "fridge", "2026-11-05")], to: log)
+        #expect(Self.againQuantity(log) == 250)
+    }
+
+    @Test func aChangeBackFromKgToGGivesTheQuantityInGAgain() {
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 500_000, "fridge", "2026-11-01"),
+            .batchUsed(batchId: "s1", quantity: 100_000, date: Self.date("2026-11-02")),
+        ])
+        log = Self.adding(Self.unitChange(log, to: .kg), to: log)
+        log = Self.adding([.batchUsed(batchId: "s1", quantity: 100, date: Self.date("2026-11-03"))], to: log)
+        log = Self.adding(Self.unitChange(log, to: .g), to: log)
+        #expect(Inventory.replay(log).batches.first?.quantity == 300_000)
+        #expect(Self.againQuantity(log) == 500_000)
+    }
+
+    @Test func anUndoneChangeOfTheUnitConvertsNothing() {
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 500_000, "fridge", "2026-11-01"),
+            .batchUsed(batchId: "s1", quantity: 100_000, date: Self.date("2026-11-02")),
+        ])
+        let first = log.count
+        let change = Self.unitChange(log, to: .kg)
+        log = Self.adding(change, to: log)
+        log = Self.adding((first..<first + change.count).map { .changeUndone(changeId: "c\($0)") }, to: log)
+        #expect(Inventory.replay(log).products.first?.unit == .g)
+        #expect(Self.againQuantity(log) == 500_000)
+    }
+
+    @Test func aChangeToAUnitWithNoFixedRelationKeepsTheNumbers() {
+        // 500 g with 100 g used becomes 400 pcs with 100 used: the numbers stay, as for the batch.
+        var log = Self.log([
+            Self.product("salt", "Salt", .g),
+            Self.batch("s1", "salt", 500_000, "fridge", "2026-11-01"),
+            .batchUsed(batchId: "s1", quantity: 100_000, date: Self.date("2026-11-02")),
+        ])
+        log = Self.adding(Self.unitChange(log, to: .pcs), to: log)
+        #expect(Inventory.replay(log).batches.first?.quantity == 400_000)
+        #expect(Self.againQuantity(log) == 500_000)
+
+        // Then from pcs to kg: also no fixed relation, so the numbers stay again.
+        log = Self.adding(Self.unitChange(log, to: .kg), to: log)
+        #expect(Self.againQuantity(log) == 500_000)
+    }
+
     @Test func aRecentFoodThatThePersonSelectsGetsItsValues() throws {
         let form = AddFoodForm(quantity: "3", storageAreaId: "fridge", expiry: .noExpiryDate)
             .withSuggestion(.ofProduct(try product("milk")), foods: foods, areas: inventory.storageAreas)

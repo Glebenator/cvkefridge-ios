@@ -48,16 +48,19 @@ public enum AddAgain {
     ///
     /// - Parameter changes: The change log of the `inventory`. The order of its `batchAdded` changes decides which of
     ///   two batches of one date added is newer. With no change of a batch, the larger identifier is newer. The
-    ///   Android app uses only the identifier, which is random, so the "newest" batch of one day was random.
+    ///   Android app uses only the identifier, which is random, so the "newest" batch of one day was random. The log
+    ///   also gives the unit of the product at the time of each use and throw away. The usual quantity is then in the
+    ///   unit of now, also after a change of the unit from g to kg (an iOS correction, see `inUnitOfNow`).
     public static func values(inventory: Inventory, productId: String, changes: [Change] = []) -> AgainValues {
         let batches = inventory.batches.filter { $0.productId == productId }
         if batches.isEmpty {
             return AgainValues(storageAreaId: nil, quantity: nil)
         }
         let areas = Set(inventory.storageAreas.map(\.id))
+        let units = takeUnits(changes, productId: productId)
         var taken: [String: Int] = [:]
-        for entry in inventory.history {
-            taken[entry.batchId, default: 0] += entry.quantity
+        for entry in inventory.history where entry.productId == productId {
+            taken[entry.batchId, default: 0] += inUnitOfNow(entry, units: units[entry.changeId] ?? [])
         }
         let order = addOrder(changes)
         let newestFirst = batches.sorted(by: { isNewer($0, $1, order: order) })
@@ -149,6 +152,82 @@ public enum AddAgain {
     /// True when the product has an active batch.
     public static func inStock(inventory: Inventory, productId: String) -> Bool {
         inventory.activeBatches.contains(where: { $0.productId == productId })
+    }
+
+    /// The quantity of a history entry in the unit that the product has now.
+    ///
+    /// A history entry has no unit: its number is in the unit of the product at the time of the use or the throw
+    /// away. A change of the unit between g and kg, or between ml and l, converts the active batches
+    /// (`InventoryActions.plan`), so the number of an earlier entry is converted in the same way, one change of the unit
+    /// after the other. For the other units, the numbers of the batches stay, so the number of the entry stays also.
+    /// An iOS correction: the Android app does not convert, and its history has the same limit.
+    ///
+    /// - Parameter units: The units of the product from the time of the entry: its unit then, and each later unit.
+    private static func inUnitOfNow(_ entry: HistoryEntry, units: [MeasureUnit?]) -> Int {
+        var quantity = entry.quantity
+        for (old, new) in zip(units, units.dropFirst()) {
+            if UnitConversion.change(from: old, to: new) == .converts,
+               let converted = UnitConversion.convert(quantity, from: old, to: new) {
+                quantity = converted
+            }
+        }
+        return quantity
+    }
+
+    /// For each use and throw away of the product, by the identifier of its change: the unit of the product at the
+    /// time of the change, and then each later unit, in the order of the replay. A change that was undone does not
+    /// count. A product with no change of the unit after an entry has only one unit for it.
+    private static func takeUnits(_ changes: [Change], productId: String) -> [String: [MeasureUnit?]] {
+        // The order of the replay (`Inventory.replay`): the instant, the identifier, and the place in the list. The
+        // first change of an identifier counts.
+        let inOrder = changes.enumerated().sorted(by: { first, second in
+            if first.element.at != second.element.at {
+                return first.element.at < second.element.at
+            }
+            if first.element.id != second.element.id {
+                return first.element.id.utf8.lexicographicallyPrecedes(second.element.id.utf8)
+            }
+            return first.offset < second.offset
+        })
+        var seen = Set<String>()
+        let ordered = inOrder.map(\.element).filter { seen.insert($0.id).inserted }
+        var byId: [String: Change] = [:]
+        for change in ordered {
+            byId[change.id] = change
+        }
+        var undone = Set<String>()
+        for change in ordered {
+            // An undo of an unknown change or of an undo is rejected and undoes nothing.
+            guard case .changeUndone(let target) = change.body, let targetChange = byId[target] else {
+                continue
+            }
+            if case .changeUndone = targetChange.body {
+                continue
+            }
+            undone.insert(target)
+        }
+        var unit: MeasureUnit?
+        var known = false
+        // For each entry so far: the place in `units` where its units start.
+        var units: [MeasureUnit?] = []
+        var starts: [String: Int] = [:]
+        for change in ordered where !undone.contains(change.id) {
+            switch change.body {
+            case .productSaved(let product) where product.id == productId:
+                if !known || product.unit != unit {
+                    unit = product.unit
+                    known = true
+                    units.append(unit)
+                }
+            case .batchUsed, .batchThrownAway:
+                if known {
+                    starts[change.id] = units.count - 1
+                }
+            default:
+                break
+            }
+        }
+        return starts.mapValues { Array(units[$0...]) }
     }
 
     /// The place of the `batchAdded` change of each batch in the order of the replay: the instant, and then the place
