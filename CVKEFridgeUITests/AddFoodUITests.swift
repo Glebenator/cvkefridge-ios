@@ -67,16 +67,16 @@ final class AddFoodUITests: FridgeUITestCase {
         waitForKeyboard(in: name, "The name field does not have the keyboard")
 
         // A name with no food in the table has no estimate. "Save and add another" keeps the form open.
-        name.typeText("Rice")
+        type("Rice", in: name)
         XCTAssertTrue(scrolledTo("field_expiry").label.contains("No expiry date"), "A food with no estimate has a date")
-        app.buttons["save_another"].tap()
+        tapFormButton("save_another")
         expect(app.staticTexts["Rice added"], "The message of the add did not show")
         waitForEmptyName(name)
         waitForKeyboard(in: name, "The name field of the next food does not have the keyboard")
 
         // A food of the table gives its category and an estimated date.
-        name.typeText("but")
-        expect(app.buttons["suggestion_food_fk-1"], "The form does not suggest Butter").tap()
+        type("but", in: name)
+        scrollTo(app.buttons["suggestion_food_fk-1"], "The form does not suggest Butter").tap()
         XCTAssertEqual(scrollBackTo(name, "The name field is not on the screen").value as? String, "Butter")
         XCTAssertTrue(scrolledTo("field_category").label.contains("Dairy"), "Butter did not give its category")
         wait(for: scrolledTo("field_expiry"), toHaveLabelWith: "estimated")
@@ -96,7 +96,7 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertEqual(app.staticTexts["hero_total"].label, "2")
         openMyFridge()
         let butter = value(of: expect(card(named: "Butter"), "My Fridge does not show Butter"))
-        XCTAssertTrue(card(named: "Rice").exists, "My Fridge does not show Rice")
+        scrollTo(card(named: "Rice"), "My Fridge does not show Rice")
         XCTAssertTrue(butter.contains("2 pcs"), "Butter does not have 2 pcs: \(butter)")
         XCTAssertTrue(butter.contains("estimated"), "The batch of Butter is not an estimate: \(butter)")
         // The note of the food is on its card.
@@ -109,16 +109,16 @@ final class AddFoodUITests: FridgeUITestCase {
         let name = openAddForm()
 
         // The person puts the first food in the freezer. The next form starts in the freezer.
-        name.typeText("Rice")
+        type("Rice", in: name)
         select("area_option_freezer", in: "field_area")
-        app.buttons["save_another"].tap()
+        tapFormButton("save_another")
         expect(app.staticTexts["Rice added"], "The message of the add did not show")
         waitForEmptyName(name)
         XCTAssertEqual(scrolledTo("field_area").value as? String, "Freezer")
 
         // Butter is usually kept in the fridge.
-        name.typeText("but")
-        expect(app.buttons["suggestion_food_fk-1"], "The form does not suggest Butter").tap()
+        type("but", in: name)
+        scrollTo(app.buttons["suggestion_food_fk-1"], "The form does not suggest Butter").tap()
         XCTAssertEqual(scrolledTo("field_area").value as? String, "Fridge")
         // The storage tips have the general advice of the table of foods for butter, and no text of a package.
         let general = scrollTo(element("storage_advice_general"), "The form has no storage tips")
@@ -142,8 +142,8 @@ final class AddFoodUITests: FridgeUITestCase {
     func testALongerNameDoesNotKeepTheEstimateOfTheFirstFood() throws {
         launch(inventory: .empty)
         let name = openAddForm()
-        name.typeText("chicken")
-        expect(app.buttons["suggestion_food_fk-113"], "The form does not suggest Chicken").tap()
+        type("chicken", in: name)
+        scrollTo(app.buttons["suggestion_food_fk-113"], "The form does not suggest Chicken").tap()
         XCTAssertEqual(scrollBackTo(name, "The name field is not on the screen").value as? String, "Chicken")
         wait(for: scrolledTo("field_expiry"), toHaveLabelWith: "Nov 15, 2026, estimated")
 
@@ -160,19 +160,21 @@ final class AddFoodUITests: FridgeUITestCase {
 
         // An empty name shows the foods that the person added, used, or threw away last.
         expect(app.staticTexts["suggestions_recent"], "The empty name field does not show the recent foods")
+        capture("add-food-recent")
+        // The list shows while the name field has the keyboard. With large text, the list is below the buttons of
+        // the form then, and the form scrolls to it.
         let juice = app.buttons["suggestion_product_sample-juice"]
         let bananas = app.buttons["suggestion_product_sample-bananas"]
-        XCTAssertEqual(juice.value as? String, "In your inventory")
-        XCTAssertEqual(bananas.value as? String, "You had this before")
-        capture("add-food-recent")
+        XCTAssertEqual(scrollTo(juice, "The recent foods do not have the juice").value as? String, "In your inventory")
+        XCTAssertEqual(scrollTo(bananas, "The recent foods do not have the bananas").value as? String, "You had this before")
 
         // A food leaves the list with its button.
-        app.buttons["recent_remove_sample-juice"].tap()
-        XCTAssertTrue(juice.waitForNonExistence(timeout: 5), "The food stayed in the list")
+        scrollTo(app.buttons["recent_remove_sample-juice"], "The juice has no button to remove it from the list").tap()
+        waitToGo(juice, "The food stayed in the list")
 
         // A recent food gets its usual quantity and the storage area of its newest batch. The form is short: the
         // category and the unit are those of the food.
-        bananas.tap()
+        scrollTo(bananas, "The recent foods do not have the bananas").tap()
         XCTAssertEqual(scrollBackTo(name, "The name field is not on the screen").value as? String, "Bananas")
         let existing = scrollTo(element("name_existing"), "The form does not say that it adds a batch")
         XCTAssertEqual(existing.label, "You had this food before. The form adds a new batch to it.")
@@ -191,8 +193,8 @@ final class AddFoodUITests: FridgeUITestCase {
     func testANameOfAFoodInTheInventoryAddsABatchToIt() throws {
         launch(inventory: .sample)
         let name = openAddForm()
-        name.typeText("whole")
-        let milk = expect(app.buttons["suggestion_product_sample-milk"], "The form does not suggest the milk of the inventory")
+        type("whole", in: name)
+        let milk = scrollTo(app.buttons["suggestion_product_sample-milk"], "The form does not suggest the milk of the inventory")
         XCTAssertEqual(milk.value as? String, "In your inventory")
         capture("add-food-suggestions")
         milk.tap()
@@ -239,7 +241,7 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertTrue(name.exists, "The form closed with no name")
 
         name.tap()
-        name.typeText("Kiwi")
+        type("Kiwi", in: name)
         replaceText(of: app.textFields["field_quantity"], with: "0")
         app.buttons["save"].tap()
         let quantityProblem = expect(app.staticTexts["error_quantity"], "The form did not show the problem of the quantity")
@@ -262,7 +264,7 @@ final class AddFoodUITests: FridgeUITestCase {
     func testANewFoodIsSavedWithThePhotoOfTheForm() throws {
         launch(inventory: .empty, arguments: ["-uiTestPicture", "photo"])
         let name = openAddForm()
-        name.typeText("Papaya")
+        type("Papaya", in: name)
         hideKeyboard()
 
         // The photo is the last section of the form. "Choose a photo" makes the photo at once, and the form shows it.
@@ -308,10 +310,11 @@ final class AddFoodUITests: FridgeUITestCase {
         let name = openAddForm()
 
         // A changed form asks first.
-        name.typeText("Plum")
+        type("Plum", in: name)
         hideKeyboard()
         scrollBackTo(app.buttons["name_scan"], "The empty form has no scan card").tap()
-        closeQuestion(with: expect(app.buttons["Discard changes"], "The changed form did not ask before it opened the scanner"))
+        expect(app.buttons["Discard changes"], "The changed form did not ask before it opened the scanner")
+        keepEditing()
         XCTAssertTrue(app.buttons["Discard changes"].waitForNonExistence(timeout: 5), "The question did not close")
         XCTAssertEqual(scrollBackTo(name, "The name field is not on the screen").value as? String, "Plum")
 
@@ -351,7 +354,7 @@ final class AddFoodUITests: FridgeUITestCase {
         capture("add-food-after-scan")
 
         // "Save and scan next" saves, and shows the scanner again.
-        app.buttons["save_scan_next"].tap()
+        tapFormButton("save_scan_next")
         expect(app.buttons["scan_add_by_hand"], "The scanner did not show again")
         waitToGo(app.navigationBars["Add food"], "The form stayed above the scanner")
         let added = NSPredicate(format: "label ENDSWITH %@", "Hazelnut spread added")
@@ -372,7 +375,7 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertFalse(app.staticTexts["suggestions_recent"].exists, "A form after a scan shows the recent foods")
 
         // "Save" closes the form and the scanner below it.
-        name.typeText("Quince jam")
+        type("Quince jam", in: name)
         app.buttons["save"].tap()
         expect(app.staticTexts["Quince jam added"], "The message of the add did not show")
         expect(areaTab("Fridge"), "The form and the scanner did not close")
@@ -400,7 +403,7 @@ final class AddFoodUITests: FridgeUITestCase {
         XCTAssertEqual(scrolledTo("field_quantity").value as? String, "500")
         XCTAssertEqual(scrolledTo("field_area").value as? String, "Freezer")
 
-        app.buttons["save_scan_next"].tap()
+        tapFormButton("save_scan_next")
         expect(app.buttons["scan_add_by_hand"], "The scanner did not show again")
         expect(app.buttons["scan_close"], "The scanner has no close button").tap()
         openMyFridge(area: "Freezer")

@@ -65,7 +65,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertTrue(areaTab("All").isSelected, "The count of Home did not show all storage areas")
         XCTAssertTrue(isOn(app.switches["filter_expiring"]), "The count of Home did not turn on its filter")
         XCTAssertFalse(isOn(app.switches["filter_expired"]))
-        XCTAssertTrue(app.buttons["food_sample-spinach/fridge"].exists)
+        scrollTo(app.buttons["food_sample-spinach/fridge"], "My Fridge does not show the card food_sample-spinach/fridge")
         XCTAssertFalse(app.buttons["food_sample-chicken/fridge"].exists)
         capture("my-fridge-expiring")
 
@@ -73,7 +73,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         tab("My Fridge").tap()
         wait(for: areaTab("Fridge"), toBeSelected: true)
         XCTAssertFalse(isOn(app.switches["filter_expiring"]))
-        XCTAssertTrue(app.buttons["food_sample-chicken/fridge"].exists)
+        scrollTo(app.buttons["food_sample-chicken/fridge"], "My Fridge does not show the card food_sample-chicken/fridge")
 
         // "View all" opens My Fridge with no filter.
         tab("Home").tap()
@@ -81,7 +81,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         expect(app.navigationBars["My Fridge"], "My Fridge did not open")
         XCTAssertTrue(areaTab("All").isSelected)
         XCTAssertFalse(isOn(app.switches["filter_expiring"]))
-        XCTAssertTrue(app.buttons["food_sample-chicken/fridge"].exists)
+        scrollTo(app.buttons["food_sample-chicken/fridge"], "My Fridge does not show the card food_sample-chicken/fridge")
     }
 
     func test03HomeOffersRemindersAndExplainsTheNotificationsFirst() throws {
@@ -160,7 +160,7 @@ final class InventoryScreensUITests: FridgeUITestCase {
         }
         expect(search, "My Fridge has no search field").tap()
         search.typeText("ket")
-        expect(app.buttons["food_sample-ketchup/sample-pantry"], "The search did not find the ketchup")
+        scrollTo(app.buttons["food_sample-ketchup/sample-pantry"], "The search did not find the ketchup")
         XCTAssertFalse(app.buttons["food_sample-milk/fridge"].exists)
 
         // The storage areas are tabs. The search text stays when the tab changes.
@@ -169,18 +169,19 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertFalse(app.buttons["filter_clear"].exists, "Clear filters shows with no filter")
         capture("my-fridge-no-match")
         search.buttons["Clear text"].tap()
-        expect(app.buttons["food_sample-peas/freezer"], "The Freezer does not show the peas")
-        XCTAssertTrue(app.buttons["food_sample-bread/freezer"].exists)
+        scrollTo(app.buttons["food_sample-bread/freezer"], "The Freezer does not show the bread")
+        // With large text, the second card is below the screen.
+        scrollTo(app.buttons["food_sample-peas/freezer"], "The Freezer does not show the peas")
 
         // The search compares the words on the screen: the name of a category finds its food.
-        search.typeText("bakery")
-        expect(app.buttons["food_sample-bread/freezer"], "The search did not find the category")
+        type("bakery", in: search)
+        scrollTo(app.buttons["food_sample-bread/freezer"], "The search did not find the category")
         XCTAssertFalse(app.buttons["food_sample-peas/freezer"].exists)
         search.buttons["Clear text"].tap()
         closeSearch()
 
         // The menu of the category chip has the categories with food in the Freezer, with the number of foods.
-        app.buttons["filter_category"].tap()
+        chip("filter_category").tap()
         let all = expect(app.buttons["category_all"], "The menu of the categories did not open")
         XCTAssertEqual(all.label, "All categories")
         XCTAssertTrue(all.isSelected, "All categories is not the selected item")
@@ -188,45 +189,44 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertFalse(app.buttons["category_dairy"].exists)
         capture("my-fridge-category-menu")
         app.buttons["category_bakery"].tap()
-        wait(for: app.buttons["filter_category"], toHaveValue: "Bakery")
-        XCTAssertTrue(app.buttons["food_sample-bread/freezer"].exists)
+        wait(for: chip("filter_category"), toHaveValue: "Bakery")
+        scrollTo(app.buttons["food_sample-bread/freezer"], "My Fridge does not show the card food_sample-bread/freezer")
         XCTAssertFalse(app.buttons["food_sample-peas/freezer"].exists)
 
         // No bakery food in the Freezer is expired. "Clear filters" shows the food of the Freezer again.
-        let expired = app.switches["filter_expired"]
-        XCTAssertEqual(expired.label, "Freshness: Expired, 0 items")
-        expired.tap()
+        XCTAssertEqual(chip("filter_expired").label, "Freshness: Expired, 0 items")
+        chip("filter_expired").tap()
         expect(app.staticTexts["No matching items"], "The list shows food that is not expired")
-        app.buttons["filter_clear"].tap()
-        expect(app.buttons["food_sample-peas/freezer"], "Clear filters did not show the food again")
-        XCTAssertFalse(isOn(expired))
-        XCTAssertEqual(value(of: app.buttons["filter_category"]), "")
+        scrollTo(app.buttons["filter_clear"], "The list with no food for the filters has no Clear filters").tap()
+        scrollTo(app.buttons["food_sample-peas/freezer"], "Clear filters did not show the food again")
+        XCTAssertFalse(isOn(chip("filter_expired")))
+        XCTAssertEqual(value(of: chip("filter_category")), "")
 
         // The two freshness chips together show the food that is expiring or expired.
         selectArea("All")
-        expired.tap()
-        expect(app.buttons["food_sample-chicken/fridge"], "The list does not show the expired food")
+        chip("filter_expired").tap()
+        // The expired food is the first card, and the list has only that card.
+        XCTAssertEqual(firstCard.identifier, "food_sample-chicken/fridge", "The list does not show the expired food")
         XCTAssertFalse(app.buttons["food_sample-spinach/fridge"].exists)
-        let expiring = app.switches["filter_expiring"]
-        expiring.tap()
-        expect(app.buttons["food_sample-spinach/fridge"], "The list does not show the expiring food")
-        XCTAssertTrue(app.buttons["food_sample-chicken/fridge"].exists)
-        XCTAssertFalse(app.buttons["food_sample-cheddar/fridge"].exists)
+        chip("filter_expiring").tap()
+        scrollTo(app.buttons["food_sample-spinach/fridge"], "The list does not show the expiring food")
+        scrollBackTo(app.buttons["food_sample-chicken/fridge"], "The list does not show the expired food with the two filters")
         capture("my-fridge-two-filters")
-        expired.tap()
-        expiring.tap()
+        chip("filter_expired").tap()
+        chip("filter_expiring").tap()
+        scrollTo(app.buttons["food_sample-cheddar/fridge"], "The list does not show the fresh food with no filter")
 
-        // The sort order by name, and then its other direction.
+        // The sort order by name, and then its other direction. Baby spinach is the first name, and Whole milk is
+        // the last name.
         app.buttons["sort_key"].tap()
         expect(app.buttons["sort_option_name"], "The menu of the sort orders did not open").tap()
-        let spinach = expect(app.buttons["food_sample-spinach/fridge"], "The list is not in the order of the names")
-        let chicken = app.buttons["food_sample-chicken/fridge"]
-        XCTAssertLessThan(spinach.frame.minY, chicken.frame.minY, "Baby spinach is not before Chicken thighs")
         XCTAssertEqual(app.buttons["sort_order"].label, "Ascending order")
+        _ = chip("filter_category")
+        XCTAssertEqual(firstCard.identifier, "food_sample-spinach/fridge", "The list is not in the order of the names")
         app.buttons["sort_order"].tap()
         XCTAssertEqual(app.buttons["sort_order"].label, "Descending order")
-        expect(app.buttons["food_sample-milk/fridge"], "The list is not in the opposite order")
-        XCTAssertFalse(spinach.exists && spinach.isHittable, "Baby spinach is still at the top")
+        _ = chip("filter_category")
+        XCTAssertEqual(firstCard.identifier, "food_sample-milk/fridge", "The list is not in the opposite order")
 
         // A tap on the selected tab starts My Fridge again. The sort order stays.
         tab("My Fridge").tap()
@@ -244,11 +244,8 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertTrue(value(of: milk).contains("3 l"), value(of: milk))
 
         // The oldest batch of the milk has 1 l. A swipe from the leading side records it as used.
-        showSwipeAction(of: milk, fromLeading: true)
-        let used = expect(app.buttons["swipe_used"], "The swipe from the leading side has no Used")
-        capture("my-fridge-swipe-used")
-        used.tap()
-        expect(app.staticTexts["1 l of Whole milk used"], "The message of the swipe did not show")
+        swipeRow(milk, fromLeading: true)
+        expect(app.staticTexts["1 l of Whole milk used"], "The message of the swipe to the trailing side did not show")
         capture("my-fridge-used-undo")
         wait(for: milk, toHaveValueWith: "2 l")
 
@@ -257,11 +254,9 @@ final class InventoryScreensUITests: FridgeUITestCase {
 
         // A swipe from the trailing side records the oldest batch as thrown away.
         let spinach = scrollBackTo(app.buttons["food_sample-spinach/fridge"], "My Fridge does not show the spinach")
-        showSwipeAction(of: spinach, fromLeading: false)
-        let thrownAway = expect(app.buttons["swipe_thrown_away"], "The swipe from the trailing side has no Thrown away")
-        capture("my-fridge-swipe-thrown-away")
-        thrownAway.tap()
-        expect(app.staticTexts["200 g of Baby spinach thrown away"], "The message of the swipe did not show")
+        swipeRow(spinach, fromLeading: false)
+        expect(app.staticTexts["200 g of Baby spinach thrown away"], "The message of the swipe to the leading side did not show")
+        capture("my-fridge-thrown-away-undo")
         XCTAssertTrue(app.buttons["Undo"].exists)
         // The spinach had one batch, so its card goes.
         waitToGo(spinach, "The card stayed after its one batch was thrown away")
@@ -374,7 +369,8 @@ final class InventoryScreensUITests: FridgeUITestCase {
         XCTAssertTrue(app.buttons["area_card_sample-pantry"].exists)
 
         // An empty storage area goes, and "Undo" brings it back.
-        showSwipeAction(of: scrollTo(cellar, "The new storage area is not on the screen"), fromLeading: false)
+        swipeRow(scrollTo(cellar, "The new storage area is not on the screen"), fromLeading: false)
+        capture("storage-area-swipe")
         expect(app.buttons["swipe_delete_area"], "The swipe has no Delete").tap()
         expect(app.staticTexts["Cellar deleted"], "The message of the delete did not show")
         waitToGo(cellar, "The storage area stayed after the delete")
@@ -428,6 +424,20 @@ final class InventoryScreensUITests: FridgeUITestCase {
     }
 
     // MARK: Parts
+
+    /// A chip of the row above the cards of My Fridge, after a scroll to it: the row is the top of the list, and it
+    /// goes up with the cards.
+    private func chip(_ identifier: String) -> XCUIElement {
+        scrollBackTo(element(identifier), "My Fridge has no \(identifier)")
+    }
+
+    /// The first card of the list of My Fridge. The list must be at its top: see `chip(_:)`.
+    private var firstCard: XCUIElement {
+        expect(
+            app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "food_sample-")).firstMatch,
+            "My Fridge shows no card"
+        )
+    }
 
     /// Closes the search field of My Fridge, with the button of the system.
     private func closeSearch() {

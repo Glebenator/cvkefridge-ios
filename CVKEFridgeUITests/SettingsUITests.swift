@@ -98,6 +98,12 @@ final class SettingsUITests: FridgeUITestCase {
         expect(wheels.firstMatch, "The time picker has no wheels")
         wheels.element(boundBy: 0).adjust(toPickerWheelValue: "7")
         wheels.element(boundBy: 1).adjust(toPickerWheelValue: "30")
+        // The wheels turn for a short time after the call. The picker has the new time when its button shows it. A
+        // picker that closes before that keeps a time that the wheels passed.
+        let shown = time.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@ OR value CONTAINS %@", "7:30", "7:30"))
+            .firstMatch
+        expect(shown, "The time picker does not show the new time")
         capture("settings-time-picker")
         // A tap outside the picker closes it.
         app.navigationBars["Settings"].firstMatch.tap()

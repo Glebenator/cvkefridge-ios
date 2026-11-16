@@ -361,7 +361,7 @@ final class FoodUITests: FridgeUITestCase {
         app.navigationBars.buttons.firstMatch.tap()
         let milk = scrollTo(card("sample-milk", area: "fridge"), "My Fridge does not show the milk")
         XCTAssertTrue(value(of: milk).contains("2.5 l"), value(of: milk))
-        app.buttons["food_menu_sample-milk/fridge"].tap()
+        scrollTo(app.buttons["food_menu_sample-milk/fridge"], "The card of the milk has no menu").tap()
         expect(app.buttons["menu_used"], "The menu of the card has no Used").tap()
         quantity = expect(app.textFields["field_quantity"], "The sheet for the quantity did not open from the card")
         XCTAssertEqual(quantity.value as? String, "1")
@@ -370,10 +370,12 @@ final class FoodUITests: FridgeUITestCase {
         app.buttons["take_confirm"].tap()
         expect(app.staticTexts["2 l of Whole milk used"], "The message of the quantity did not show on My Fridge")
         waitToGo(quantity, "The sheet did not close")
-        wait(for: milk, toHaveValueWith: "0.5 l")
+        // The milk now expires later, so its card is at a different place in the list. With large text, that place
+        // is below the screen.
+        wait(for: scrollTo(milk, "My Fridge does not show the milk after the use"), toHaveValueWith: "0.5 l")
 
         // The close button of the sheet records nothing.
-        app.buttons["food_menu_sample-milk/fridge"].tap()
+        scrollTo(app.buttons["food_menu_sample-milk/fridge"], "The card of the milk has no menu").tap()
         expect(app.buttons["menu_thrown_away"], "The menu of the card has no Thrown away").tap()
         expect(app.buttons["take_close"], "The sheet has no close button").tap()
         waitToGo(app.textFields["field_quantity"], "The sheet did not close")

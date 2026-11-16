@@ -71,10 +71,9 @@ final class ScanUITests: FridgeUITestCase {
 
         expectForm(name: "Nutella")
         expectScanNote(source: "From Open Food Facts. Check the values before you save.", barcode: "3017620422003")
-        XCTAssertEqual(app.textFields["field_quantity"].value as? String, "400")
-        for (field, value) in [("field_category", "Condiment"), ("field_unit", "g")] {
-            let picker = app.buttons[field].firstMatch
-            XCTAssertTrue(picker.exists, "The form has no \(field)")
+        for (field, value) in [("field_category", "Condiment"), ("field_quantity", "400"), ("field_unit", "g")] {
+            // With large text, a field can be below the screen.
+            let picker = scrolledTo(field)
             let shown = "\(picker.label) \(picker.value as? String ?? "")"
             XCTAssertTrue(shown.contains(value), "\(field) shows \(shown), not \(value)")
         }
@@ -95,7 +94,7 @@ final class ScanUITests: FridgeUITestCase {
         let existing = scrollTo(element("name_existing"), "The form does not say that it adds a batch")
         XCTAssertEqual(existing.label, "This food is in your inventory. The form adds a batch to it.")
         XCTAssertFalse(element("scan_note").exists, "A food of the inventory has a note of the lookup")
-        app.buttons["save_scan_next"].tap()
+        tapFormButton("save_scan_next")
 
         // "Save and scan next" shows the scanner again. The message is above the panel: "Undo" is there, and the
         // buttons of the panel are not under the message.
@@ -145,7 +144,7 @@ final class ScanUITests: FridgeUITestCase {
         wait(for: name, toMatch: NSPredicate(format: "hasKeyboardFocus == true"), "The empty name field does not have the keyboard")
         capture("scan-form-not-found")
         name.typeText("Oat drink")
-        app.buttons["save_scan_next"].tap()
+        tapFormButton("save_scan_next")
 
         // "Save and scan next" shows the scanner again.
         expectScannerOnly()
@@ -270,8 +269,6 @@ final class ScanUITests: FridgeUITestCase {
         // After some seconds with no barcode, the hint says what helps.
         let slow = NSPredicate(format: "label BEGINSWITH %@", "Can't read the barcode?")
         wait(for: [expectation(for: slow, evaluatedWith: hint)], timeout: 20)
-        // The new words fade in.
-        _ = app.buttons["no_such_button"].waitForExistence(timeout: 1)
         capture("scan-camera-slow-hint")
 
         app.buttons["scan_close"].tap()

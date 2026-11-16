@@ -104,7 +104,7 @@ final class ShellUITests: FridgeUITestCase {
         let name = expect(app.textFields["field_name"], "The add form did not open")
         name.tap()
         name.typeText("Kiwi")
-        app.buttons["save_another"].tap()
+        tapFormButton("save_another")
 
         // The form stays open for the next food, and the message shows above its buttons.
         expect(app.staticTexts["Kiwi added"], "The message did not show above the form")

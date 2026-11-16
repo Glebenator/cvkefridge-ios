@@ -77,7 +77,8 @@ final class EditUITests: FridgeUITestCase {
 
         // A changed form asks before it closes. The Android app drops the changes with no question.
         app.buttons["form_close"].tap()
-        closeQuestion(with: expect(app.buttons["Discard changes"], "The changed form did not ask before it closed"))
+        expect(app.buttons["Discard changes"], "The changed form did not ask before it closed")
+        keepEditing()
         XCTAssertTrue(app.buttons["Discard changes"].waitForNonExistence(timeout: 5), "The question did not close")
         XCTAssertTrue(app.textFields["field_quantity"].exists, "The form closed with no answer to the question")
         app.buttons["form_close"].tap()
@@ -200,12 +201,12 @@ final class EditUITests: FridgeUITestCase {
         let note = expect(element("unit_keeps_numbers"), "The form does not say that the numbers stay")
         XCTAssertTrue(note.label.contains("350 g becomes 350 pcs"), "The form does not show the example: \(note.label)")
 
-        // A question with no answer saves nothing.
+        // "Keep editing" saves nothing.
         hideKeyboard()
         app.buttons["save"].tap()
-        let question = expect(app.staticTexts["Change the unit to pcs?"], "Save did not ask about the unit")
+        expect(app.staticTexts["Change the unit to pcs?"], "Save did not ask about the unit")
         capture("edit-food-unit-question")
-        closeQuestion(with: question)
+        keepEditing()
         XCTAssertTrue(app.buttons["unit_change_confirm"].firstMatch.waitForNonExistence(timeout: 5), "The question did not close")
         XCTAssertTrue(app.textFields["field_name"].exists, "The form closed with no answer to the question")
 

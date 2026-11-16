@@ -161,22 +161,30 @@ class FridgeUITestCase: XCTestCase {
     private static let bottomBarButtons = ["save", "save_another", "save_scan_next", "take_confirm", "area_save", "food_note_save"]
 
     /// The part of the screen, from its top to its bottom, where the content shows with no bar above it: below the
-    /// navigation bar and the row of the storage areas, and above the tab bar, the buttons of a form, and the
-    /// keyboard.
+    /// navigation bar and the row of the storage areas, and above the tab bar, the buttons of a form, the keyboard,
+    /// and a message of the app. With large text, a message covers a large part of the screen while it shows.
     private func contentBand() -> ClosedRange<CGFloat> {
         let window = app.frame
-        // The navigation bar of a sheet is below the navigation bar of the screen under it, so the lowest one counts.
+        // A sheet has a navigation bar of its own, and it covers the navigation bar of the screen under it. A bar
+        // that a sheet covers gets no tap, so it does not count: with large text and a search field, it is higher
+        // than the bar of the sheet.
         var top = window.minY + 100
-        let bars = app.navigationBars.allElementsBoundByIndex + [app.scrollViews["area_tabs"]]
-        for bar in bars where bar.exists {
+        let bars = app.navigationBars.allElementsBoundByIndex
+        for bar in bars where bar.exists && bar.isHittable {
             let frame = bar.frame
             if !frame.isEmpty, frame.maxY < window.midY {
                 top = max(top, frame.maxY)
             }
         }
+        // The row of the storage areas is below the navigation bar of My Fridge. A sheet above My Fridge covers the
+        // row, and the sheet has a navigation bar of its own.
+        let areaTabs = app.scrollViews["area_tabs"]
+        if bars.count == 1, areaTabs.exists {
+            top = max(top, areaTabs.frame.maxY)
+        }
         top += 8
         var bottom = window.maxY - 100
-        var covers = [app.keyboards.firstMatch, app.toolbars.firstMatch, app.tabBars.firstMatch]
+        var covers = [app.keyboards.firstMatch, app.toolbars.firstMatch, app.tabBars.firstMatch, element("notice")]
         covers += app.buttons.matching(NSPredicate(format: "identifier IN %@", Self.bottomBarButtons)).allElementsBoundByIndex
         for cover in covers where cover.exists {
             let frame = cover.frame
@@ -189,15 +197,26 @@ class FridgeUITestCase: XCTestCase {
     }
 
     private func bring(_ element: XCUIElement, searchingDown: Bool, _ message: String) -> XCUIElement {
-        let band = contentBand()
-        let height = band.upperBound - band.lowerBound
-        let middle = (band.lowerBound + band.upperBound) / 2
+        var band = contentBand()
+        var height = band.upperBound - band.lowerBound
+        var middle = (band.lowerBound + band.upperBound) / 2
         let origin = app.coordinate(withNormalizedOffset: .zero)
-        // The drags start at the leading side of the centre, where a card has no menu button.
-        let x = app.frame.width * 0.4
+        // The drags are in the margin at the leading edge of the screen, where the content has no control. A drag
+        // that starts on a menu button opens the menu and selects the item below the finger, and a drag that starts
+        // in a text field with the keyboard does not move the content.
+        let x = app.frame.minX + 6
+        // A drag down at the top of the content of a sheet moves the sheet. A short and slow drag does not close
+        // the sheet: the sheet goes back when the finger goes up.
+        let maxDown = min(height * 0.8, app.frame.height * 0.22)
         // While the element is not there, the search goes to one end of the content, and then to the other end.
         let firstSearch = 14
         var searches = 0
+        var lastY: CGFloat?
+        var stops = 0
+        // An element that comes after a short time, for example a suggestion for a typed name, needs no search.
+        if !element.exists {
+            _ = element.waitForExistence(timeout: 2)
+        }
         for _ in 0..<70 {
             // A positive step moves the content up.
             var step: CGFloat
@@ -206,13 +225,35 @@ class FridgeUITestCase: XCTestCase {
                 if band.contains(y) && element.isHittable {
                     return element
                 }
-                step = max(-height * 0.8, min(height * 0.8, y - middle))
+                // The content is at its end when the drags do not move the element.
+                stops = lastY.map { abs($0 - y) < 2 } == true ? stops + 1 : 0
+                lastY = y
+                if stops >= 4 {
+                    XCTFail("\(message) (the centre of the element stays at \(Int(y)), and the part with no bar is \(Int(band.lowerBound)) to \(Int(band.upperBound)))")
+                    return element
+                }
+                if stops >= 1 {
+                    if stops == 2 {
+                        // The element is below the keyboard or the bar above it, and the content does not move
+                        // more. A person closes the keyboard then.
+                        hideKeyboard()
+                    }
+                    // The bars can be different now: a sheet completed its close, a message went away, or a drag
+                    // closed the keyboard.
+                    band = contentBand()
+                    height = band.upperBound - band.lowerBound
+                    middle = (band.lowerBound + band.upperBound) / 2
+                    if band.contains(y) && element.isHittable {
+                        return element
+                    }
+                }
+                step = max(-maxDown, min(height * 0.8, y - middle))
                 if abs(step) < 12 {
                     step = step < 0 ? -12 : 12
                 }
             } else if searches < firstSearch * 3 {
                 let down = (searches < firstSearch) == searchingDown
-                step = (down ? 1 : -1) * height * 0.7
+                step = down ? height * 0.7 : -min(height * 0.7, maxDown)
                 searches += 1
             } else {
                 break
@@ -248,7 +289,24 @@ class FridgeUITestCase: XCTestCase {
     /// are on the screen. With large text, a form has few rows on the screen, so a test scrolls to a row before it
     /// reads the row.
     func scrolledTo(_ identifier: String) -> XCUIElement {
-        scrollTo(element(identifier), "The screen has no \(identifier)")
+        let part = element(identifier)
+        if !part.exists {
+            // With the keyboard, only a small part of a form shows, and the scroll to a row that is far away has
+            // many steps. A person closes the keyboard first also.
+            hideKeyboard()
+        }
+        return scrollTo(part, "The screen has no \(identifier)")
+    }
+
+    /// Selects a button of the bar at the bottom edge of a form, by its identifier: "save", "save_another", or
+    /// "save_scan_next". With an accessibility text size and the keyboard, the bar shows only its main button, so
+    /// the keyboard closes first.
+    func tapFormButton(_ identifier: String) {
+        let button = app.buttons[identifier]
+        if !(button.exists && button.isHittable) {
+            hideKeyboard()
+        }
+        expect(button, "The form has no button \(identifier)").tap()
     }
 
     /// The accessibility value of an element as text.
@@ -311,13 +369,22 @@ class FridgeUITestCase: XCTestCase {
         XCTAssertTrue(element.waitForNonExistence(timeout: timeout), message)
     }
 
-    /// Shows the swipe action of a row of a list: a short drag from the centre of the row, to the trailing side for
-    /// the action at the leading side (`fromLeading`), or the opposite. The drag is not a full swipe, so the button
-    /// of the action shows and the action does not run. The centre of the row must be on the screen: see `scrollTo`.
-    func showSwipeAction(of row: XCUIElement, fromLeading: Bool) {
-        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-        let end = start.withOffset(CGVector(dx: fromLeading ? 130 : -130, dy: 0))
-        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: 300, thenHoldForDuration: 0.3)
+    /// Swipes a row of a list from one side of the screen to the other, at the height of the centre of the row: to
+    /// the trailing side for the action at the leading side (`fromLeading`), or the opposite. A row with a full swipe
+    /// does its action. A row with no full swipe shows the button of its action, and the button stays. A shorter
+    /// drag gives a different result for each text size: the row closes again when the drag is less than a part of
+    /// the width of its button.
+    ///
+    /// The centre of the row must be on the screen: see `scrollTo`.
+    func swipeRow(_ row: XCUIElement, fromLeading: Bool) {
+        let window = app.frame
+        let y = row.frame.midY
+        let origin = app.coordinate(withNormalizedOffset: .zero)
+        // The start is not at the edge of the screen, where a drag is the back gesture of the system.
+        let leading = origin.withOffset(CGVector(dx: window.minX + 36, dy: y))
+        let trailing = origin.withOffset(CGVector(dx: window.maxX - 36, dy: y))
+        let end = origin.withOffset(CGVector(dx: fromLeading ? window.maxX - 6 : window.minX + 6, dy: y))
+        (fromLeading ? leading : trailing).press(forDuration: 0.05, thenDragTo: end, withVelocity: 600, thenHoldForDuration: 0.3)
     }
 
     // MARK: - Text fields and questions
@@ -336,6 +403,18 @@ class FridgeUITestCase: XCTestCase {
             done.tap()
             _ = keyboard.waitForNonExistence(timeout: 5)
         }
+    }
+
+    /// Types text in a field. A field that is not on the screen comes there first, and a field with no keyboard gets
+    /// a tap. A scroll or a button can close the keyboard, for example with large text.
+    func type(_ text: String, in field: XCUIElement) {
+        if !(field.exists && field.isHittable) {
+            scrollTo(field, "The field is not on the screen")
+        }
+        if (field.value(forKey: "hasKeyboardFocus") as? Bool) != true {
+            field.tap()
+        }
+        field.typeText(text)
     }
 
     /// Replaces the text of a field that has one line.
@@ -357,14 +436,10 @@ class FridgeUITestCase: XCTestCase {
         field.typeText(text)
     }
 
-    /// Closes a question of the system with no answer: a tap out of it. The system shows no "Keep editing" button
-    /// on an iPhone. The question is near the control that opened it, and its size changes with the text size, so the
-    /// tap is at the edge of the screen that is farther from the question.
-    ///
-    /// - Parameter part: A button or a text of the question.
-    func closeQuestion(with part: XCUIElement) {
-        let inTopHalf = part.frame.midY < app.frame.midY
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: inTopHalf ? 0.97 : 0.08)).tap()
+    /// Answers "Keep editing" to a question of a form: "Discard your changes?" or "Change the unit?". The question
+    /// closes, and the form stays as it is.
+    func keepEditing() {
+        expect(app.buttons["Keep editing"], "The question has no Keep editing").tap()
     }
 
     /// Selects an option in the menu of a field of a form, for example
@@ -409,15 +484,22 @@ class FridgeUITestCase: XCTestCase {
     /// and the row scrolls sideways.
     func selectArea(_ name: String) {
         let tab = expect(areaTab(name), "My Fridge has no tab for \(name)")
-        let row = app.scrollViews["area_tabs"]
         let window = app.frame
         var drags = 0
         // The centre of the tab must be on the screen for the tap. A tab out of the screen has a frame, but XCTest
         // cannot tell if a tap gets to it.
+        let origin = app.coordinate(withNormalizedOffset: .zero)
         while drags < 12 && !(window.minX + 24...window.maxX - 24).contains(tab.frame.midX) {
-            let step = max(-window.width * 0.5, min(window.width * 0.5, tab.frame.midX - window.midX))
-            let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -step, dy: 0)), withVelocity: 400, thenHoldForDuration: 0.2)
+            // The drag is at the height of the tabs. The element of the row is higher than the tabs: it starts at
+            // the top of the screen, and its centre is on the navigation bar.
+            let frame = tab.frame
+            let step = max(-window.width * 0.5, min(window.width * 0.5, frame.midX - window.midX))
+            origin.withOffset(CGVector(dx: window.midX + step / 2, dy: frame.midY)).press(
+                forDuration: 0.05,
+                thenDragTo: origin.withOffset(CGVector(dx: window.midX - step / 2, dy: frame.midY)),
+                withVelocity: 400,
+                thenHoldForDuration: 0.2
+            )
             drags += 1
         }
         tab.tap()
