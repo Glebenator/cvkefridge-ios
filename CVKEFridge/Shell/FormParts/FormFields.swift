@@ -162,9 +162,9 @@ struct StorageAreaPicker: View {
                             .imageScale(.small)
                             .accessibilityHidden(true)
                     }
-                    .frame(minHeight: Metrics.minTarget)
-                    .contentShape(.rect)
+                    .formRowTarget()
                 }
+                .formRowTargetInRow()
                 .accessibilityLabel(Text("Storage area"))
                 .accessibilityValue(Text(verbatim: selected?.displayName ?? ""))
                 .accessibilityIdentifier("field_area")
@@ -218,5 +218,21 @@ struct NoteField: View {
         TextField("Note", text: $text, prompt: Text("For example: opened on Sunday"), axis: .vertical)
             .lineLimit(1...5)
             .accessibilityIdentifier("field_note")
+    }
+}
+
+extension View {
+    /// Makes the label of a menu in a row of a form a target of 44 points or more: the label gets the space above
+    /// and below it that a row has around its content. Use it on the label, and `formRowTargetInRow()` on the menu.
+    func formRowTarget() -> some View {
+        padding(.vertical, Space.s3)
+            .frame(minHeight: Metrics.minTarget)
+            .contentShape(.rect)
+    }
+
+    /// Takes the space of `formRowTarget()` out of the layout again, so that the row is as high as a row with a
+    /// picker of the system. The target stays: it uses the space that the row has around its content.
+    func formRowTargetInRow() -> some View {
+        padding(.vertical, -Space.s3)
     }
 }
