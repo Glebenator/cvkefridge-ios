@@ -79,8 +79,12 @@ final class LocalReminderService: NSObject, ReminderService, UNUserNotificationC
     // MARK: The plan
 
     func update(planned: [PlannedReminder], todayFoods: [ReminderFood], timeZone: TimeZone) async {
+        let today = ReminderSchedule.dateOf(Date(), timeZone: timeZone)
+        // A reminder of a date after today came before the clock went back. It must not stop the reminder of that
+        // date when the date comes (`ReminderPlan.lastDate`).
+        seen.withLock { dates in dates = dates.filter { $0 <= today } }
         await replacePending(with: planned, timeZone: timeZone)
-        await cleanDelivered(todayFoods: todayFoods, today: ReminderSchedule.dateOf(Date(), timeZone: timeZone))
+        await cleanDelivered(todayFoods: todayFoods, today: today)
         await Self.registerCategories(center)
     }
 

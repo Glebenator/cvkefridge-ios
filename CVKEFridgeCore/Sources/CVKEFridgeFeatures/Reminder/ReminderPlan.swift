@@ -158,7 +158,11 @@ public enum ReminderPlan {
     /// date that is not after today wins. A recorded last date that is later stays, and a shown date after today (a
     /// clock that went back) has no effect.
     ///
-    /// - Returns: The new last date, or the recorded last date when the evidence has no later date.
+    /// A recorded last date after today also comes from a clock that went back. It goes, also when there is no
+    /// evidence: it must not stop the reminder of that date when the date comes.
+    ///
+    /// - Returns: The new last date, or the recorded last date when the evidence has no later date and the recorded
+    ///   date is not after today.
     public static func lastDate(
         _ settings: ReminderSettings,
         shown: Set<CalendarDate>,
@@ -166,10 +170,11 @@ public enum ReminderPlan {
         timeZone: TimeZone
     ) -> CalendarDate? {
         let today = ReminderSchedule.dateOf(now, timeZone: timeZone)
+        let known = ReminderSchedule.knownLastDate(settings.last, now: now, timeZone: timeZone)
         guard let latest = shown.filter({ $0 <= today }).max() else {
-            return settings.last
+            return known
         }
-        if let known = ReminderSchedule.knownLastDate(settings.last, now: now, timeZone: timeZone), known >= latest {
+        if let known, known >= latest {
             return known
         }
         return latest
@@ -202,14 +207,17 @@ public enum ReminderPlan {
 /// Rules:
 /// 1. Each date has one identifier: `reminder-2026-11-14`. A new plan replaces the notification of the same date, and
 ///    the app can find the date of a notification that iOS shows.
-/// 2. The trigger is the time on the clock of the instant of `triggerAt(timeZone:)` in the time zone of the device:
-///    the era, the year, the month, the day, the hour, the minute, and the second, in the calendar of the person. On
-///    a day when the clock skips the time of the reminder, the trigger is later by the gap, so the components always
-///    name a time that exists on the clock.
+/// 2. The trigger is the date of the reminder and the time of the settings: the era, the year, the month, and the day
+///    in the calendar of the person, and the hour and the minute of the settings, with the second 0. The trigger is
+///    not corrected for a change of the clock. On a day when the clock skips the time of the reminder, iOS gives the
+///    reminder one time, later by the gap: 02:30 comes at 03:30 when the clock skips from 02:00 to 03:00
+///    (`UNCalendarNotificationTrigger.nextTriggerDate()`, iOS 26). In the hour that the clock repeats, iOS gives it at
+///    the first of the two times. This is the same instant as `triggerAt(timeZone:)`.
 /// 3. The trigger has no time zone and no calendar. iOS reads it on the clock and in the calendar of the device at
 ///    each moment. So when the person travels to a different time zone and does not open the app, the reminder still
-///    comes at its time on the clock of the new time zone. (A calendar in the components keeps its time zone, also
-///    with `autoupdatingCurrent`, and the reminder would come at the time of the old time zone.)
+///    comes at its time on the clock of the new time zone, also when the old time zone skipped that time on that day.
+///    (A calendar in the components keeps its time zone, also with `autoupdatingCurrent`, and the reminder would come
+///    at the time of the old time zone.)
 extension PlannedReminder {
     /// The start of the identifier of each planned reminder. The rest is the date.
     public static let identifierPrefix = "reminder-"
@@ -238,10 +246,13 @@ extension PlannedReminder {
     {
         var calendar = calendar
         calendar.timeZone = timeZone
-        var components = calendar.dateComponents(
-            [.era, .year, .month, .day, .hour, .minute, .second],
-            from: triggerAt(timeZone: timeZone)
-        )
+        // The date in the calendar of the person, from 12:00 of the date. That time is on the date on each day, also
+        // on a day when the clock skips midnight.
+        let noon = ReminderSchedule.triggerAt(date, time: ReminderTime(minuteOfDay: 12 * 60)!, timeZone: timeZone)
+        var components = calendar.dateComponents([.era, .year, .month, .day], from: noon)
+        components.hour = time.minuteOfDay / 60
+        components.minute = time.minuteOfDay % 60
+        components.second = 0
         components.calendar = nil
         components.timeZone = nil
         return components

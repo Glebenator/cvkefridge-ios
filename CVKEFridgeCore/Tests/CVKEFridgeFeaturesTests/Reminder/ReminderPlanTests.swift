@@ -291,6 +291,14 @@ struct ReminderPlanTests {
         #expect(last(settings(lastDate: "2026-11-14"), shown: ["2026-11-12"], now: 10 * 60) == "2026-11-12")
     }
 
+    @Test func aRecordedLastDateAfterTodayGoesAlsoWithNoEvidence() {
+        // The reminder of 14 November came, and then the clock went back to 12 November. iOS gives no evidence now.
+        // The date must not stop the reminder of 14 November when that date comes again.
+        #expect(last(settings(lastDate: "2026-11-14"), shown: [], now: 10 * 60) == nil)
+        // A recorded date that is not after today stays.
+        #expect(last(settings(lastDate: "2026-11-12"), shown: [], now: 10 * 60) == "2026-11-12")
+    }
+
     // MARK: The notification of a planned reminder
 
     private func reminder(on date: String, at minuteOfDay: Int) -> PlannedReminder {
@@ -350,13 +358,30 @@ struct ReminderPlanTests {
         #expect(fire(components, in: newYork) == instant("2026-11-14T14:00:00Z"))
     }
 
-    @Test func theTriggerOfATimeThatTheClockSkipsIsATimeThatExists() {
-        // On 29 March 2026 the clock of Berlin skips from 02:00 to 03:00. A reminder at 02:30 comes at 03:30.
+    @Test func theTriggerOfATimeThatTheClockSkipsHasTheTimeOfTheSettings() {
+        // On 29 March 2026 the clock of Berlin skips from 02:00 to 03:00. The trigger keeps 02:30, and the calendar
+        // moves it forward by the gap: the reminder comes one time, at 03:30.
         let components = reminder(on: "2026-03-29", at: 2 * 60 + 30).triggerComponents(timeZone: berlin)
         #expect(components.day == 29)
-        #expect(components.hour == 3)
+        #expect(components.hour == 2)
         #expect(components.minute == 30)
+        #expect(components.second == 0)
         #expect(fire(components, in: berlin) == instant("2026-03-29T01:30:00Z"))
+        // The person travels to a time zone with no change of the clock on that day and does not open the app. The
+        // reminder comes at 02:30 on the clock there, not at 03:30.
+        let tokyo = TimeZone(identifier: "Asia/Tokyo")!
+        #expect(fire(components, in: tokyo) == instant("2026-03-28T17:30:00Z"))
+    }
+
+    @Test func theTriggerOfAReminderAtMidnightOnADayThatSkipsMidnightIsOnItsDate() {
+        // On 6 September 2026 the clock of Santiago de Chile skips from 00:00 to 01:00. The date stays the 6th.
+        let santiago = TimeZone(identifier: "America/Santiago")!
+        let components = reminder(on: "2026-09-06", at: 0).triggerComponents(timeZone: santiago)
+        #expect(components.year == 2026)
+        #expect(components.month == 9)
+        #expect(components.day == 6)
+        #expect(components.hour == 0)
+        #expect(components.minute == 0)
     }
 
     @Test func theTriggerInTheHourThatTheClockRepeatsIsTheFirstTime() {
