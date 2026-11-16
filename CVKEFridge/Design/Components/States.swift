@@ -38,12 +38,23 @@ struct EmptyStateView<Actions: View>: View {
             }
             .multilineTextAlignment(.center)
             FlowLayout(alignment: .center) { actions }
-                // In a row of a list, a label has a large icon in a column of its own. The buttons of an empty
-                // state look the same in a list and out of a list.
-                .labelStyle(.titleAndIcon)
+                // In a row of a list, a label of the system has a large icon in a column of its own. The buttons of
+                // an empty state look the same in a list and out of a list.
+                .labelStyle(InlineLabelStyle())
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Space.s8)
+    }
+}
+
+/// A label with its icon and its title side by side, with the space of a button between them, in a list and out of
+/// a list.
+struct InlineLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: Space.s2) {
+            configuration.icon
+            configuration.title
+        }
     }
 }
 
