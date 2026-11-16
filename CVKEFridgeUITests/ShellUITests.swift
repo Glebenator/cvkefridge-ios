@@ -41,8 +41,7 @@ final class ShellUITests: FridgeUITestCase {
         tab("Add food").tap()
         let name = expect(app.textFields["field_name"], "The add form did not open")
         XCTAssertTrue(tab("Home").isSelected || !tab("Home").isHittable, "The add button changed the selected tab")
-        name.tap()
-        name.typeText("Kiwi")
+        type("Kiwi", in: name)
         capture("shell-add-food")
         app.buttons["save"].tap()
 
@@ -102,8 +101,7 @@ final class ShellUITests: FridgeUITestCase {
         expect(app.staticTexts["hero_total"], "Home does not show the number of foods")
         tab("Add food").tap()
         let name = expect(app.textFields["field_name"], "The add form did not open")
-        name.tap()
-        name.typeText("Kiwi")
+        type("Kiwi", in: name)
         tapFormButton("save_another")
 
         // The form stays open for the next food, and the message shows above its buttons.
@@ -112,8 +110,7 @@ final class ShellUITests: FridgeUITestCase {
         capture("shell-notice-above-sheet")
 
         // An empty form closes with no question. A changed form asks first.
-        name.tap()
-        name.typeText("Plum")
+        type("Plum", in: name)
         app.buttons["form_close"].tap()
         expect(app.buttons["Discard changes"], "The changed form did not ask before it closed")
         capture("shell-discard")
@@ -132,8 +129,7 @@ final class ShellUITests: FridgeUITestCase {
         // The add form opens above the scanner. "Save" closes the two.
         expect(app.buttons["scan_add_by_hand"], "The scanner did not open").tap()
         let name = expect(app.textFields["field_name"], "The add form did not open above the scanner")
-        name.tap()
-        name.typeText("Pear")
+        type("Pear", in: name)
         app.buttons["save"].tap()
         expect(app.staticTexts["Pear added"], "The message of the add did not show")
         expect(areaTab("Fridge"), "The form and the scanner did not close")
