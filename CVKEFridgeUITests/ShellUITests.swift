@@ -139,4 +139,38 @@ final class ShellUITests: FridgeUITestCase {
         expect(areaTab("Fridge"), "The form and the scanner did not close")
         XCTAssertFalse(app.buttons["scan_add_by_hand"].exists, "The scanner stayed open after Save")
     }
+
+    func test7AScreenThatOpensAfterTheAddButtonFindsTheAppObjects() throws {
+        // After the add button of the tab bar, the navigation bar of the selected tab made the bar of the next
+        // screen in a place with no app objects. The Food screen and Storage areas then stopped the app.
+        launch(inventory: .sample)
+        openMyFridge()
+        tab("Add food").tap()
+        let name = expect(app.textFields["field_name"], "The add form did not open")
+        type("Kiwi", in: name)
+        tapFormButton("save")
+        expect(app.staticTexts["Kiwi added"], "The message of the add did not show")
+        openFood("sample-chicken")
+        XCTAssertEqual(app.state, .runningForeground, "The app stopped when the Food screen opened")
+
+        // Storage areas opens in the same stack after the add button, with no save.
+        app.navigationBars.buttons.firstMatch.tap()
+        tab("Add food").tap()
+        expect(app.textFields["field_name"], "The add form did not open the second time")
+        app.buttons["form_close"].tap()
+        waitToGo(app.textFields["field_name"], "The add form did not close")
+        expect(app.buttons["my_fridge_menu"], "My Fridge has no menu").tap()
+        expect(app.buttons["menu_storage_areas"], "The menu has no storage areas").tap()
+        expect(app.navigationBars["Storage areas"], "Storage areas did not open")
+
+        // Home has its own stack: a food that needs attention opens there.
+        tab("Home").tap()
+        tab("Add food").tap()
+        expect(app.textFields["field_name"], "The add form did not open on Home")
+        app.buttons["form_close"].tap()
+        waitToGo(app.textFields["field_name"], "The add form did not close on Home")
+        let attention = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "attention_")).firstMatch
+        scrollTo(attention, "Home shows no food that needs attention").tap()
+        expect(app.staticTexts["food_name"], "The Food screen did not open from Home")
+    }
 }

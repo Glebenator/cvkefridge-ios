@@ -103,21 +103,35 @@ private struct TabStack<Root: View>: View {
     let tab: AppTab
     @ViewBuilder let root: Root
 
+    @Environment(FridgeModel.self) private var model
     @Environment(Navigator.self) private var navigator
+    @Environment(NoticeStage.self) private var stage
 
     var body: some View {
         NavigationStack(path: path) {
             root
                 .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .food(let productId):
-                        FoodScreen(productId: productId)
-                    case .storageAreas:
-                        StorageAreasScreen()
-                    }
+                    destination(route)
+                        // After a tap on the add button of the tab bar, the navigation bar of this stack can make
+                        // the bar of a new screen in a place that does not get the environment of the app. The
+                        // screen then did not find the model and stopped the app. So each screen of the stack
+                        // gets the objects of the app again here.
+                        .environment(model)
+                        .environment(navigator)
+                        .environment(stage)
                 }
         }
         .noticeHost()
+    }
+
+    @ViewBuilder
+    private func destination(_ route: Route) -> some View {
+        switch route {
+        case .food(let productId):
+            FoodScreen(productId: productId)
+        case .storageAreas:
+            StorageAreasScreen()
+        }
     }
 
     /// The screens above the first screen of this tab.
