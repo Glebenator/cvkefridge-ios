@@ -206,10 +206,15 @@ private struct SwipeToDismiss: ViewModifier {
                     return
                 }
                 Haptic.commit.play()
+                guard !reduceMotion else {
+                    // With Reduce Motion on, the message does not move away. It goes at once.
+                    onDismiss()
+                    return
+                }
                 let target = sideways
                     ? CGSize(width: (offset.width < 0 ? -1.2 : 1.2) * size.width, height: 0)
                     : CGSize(width: 0, height: size.height * 1.2)
-                withAnimation(Motion.resolved(Motion.exit, reduceMotion: reduceMotion)) {
+                withAnimation(Motion.exit) {
                     offset = target
                 } completion: {
                     onDismiss()
