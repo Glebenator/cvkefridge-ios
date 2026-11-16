@@ -303,11 +303,14 @@ struct MyFridgeScreen: View {
         }
     }
 
-    /// Records all of the batch to use first. It is the action of a swipe, and it needs no question.
+    /// Records all of the batch to use first that the card shows. It is the action of a swipe, and it needs no
+    /// question. The action is for that batch only: a second swipe before the card changes does not take from the
+    /// next batch.
     private func takeOldest(_ row: FoodRow, _ outcome: Outcome) {
-        model.perform(
-            .take(.init(productId: row.productId, batchIds: row.batchIds, quantity: row.firstQuantity, outcome: outcome))
-        )
+        guard let batchId = row.batchIds.first else {
+            return
+        }
+        model.takeWholeBatch(productId: row.productId, batchId: batchId, outcome: outcome)
     }
 }
 

@@ -34,6 +34,25 @@ struct LaterExpiryTests {
         #expect(LaterExpiry.date(expiry: date("9999-12-31"), today: today, days: 1) == nil)
     }
 
+    // iOS correction of defect 6 of `docs/android-parity-plan.md`: the Android app accepts each date.
+    @Test func aLaterDateIsAfterTheExpiryDateAndAfterToday() {
+        // An expired batch: the first later date is tomorrow, also when the calendar opened before midnight.
+        #expect(!LaterExpiry.isLater(today, expiry: date("2026-11-10"), today: today))
+        #expect(LaterExpiry.isLater(date("2026-11-14"), expiry: date("2026-11-10"), today: today))
+        // An expiring batch: the first later date is the day after its expiry date.
+        #expect(!LaterExpiry.isLater(date("2026-11-15"), expiry: date("2026-11-15"), today: today))
+        #expect(!LaterExpiry.isLater(date("2026-11-14"), expiry: date("2026-11-15"), today: today))
+        #expect(LaterExpiry.isLater(date("2026-11-16"), expiry: date("2026-11-15"), today: today))
+        // A batch with no expiry date: each date after today.
+        #expect(!LaterExpiry.isLater(today, expiry: nil, today: today))
+        #expect(LaterExpiry.isLater(date("2026-11-14"), expiry: nil, today: today))
+        // The quick choices are always later.
+        for days in LaterExpiry.quickDays {
+            let expiry = date("2026-11-10")
+            #expect(LaterExpiry.isLater(LaterExpiry.date(expiry: expiry, today: today, days: days)!, expiry: expiry, today: today))
+        }
+    }
+
     @Test func theQuickChoicesAreOneDayAndOneWeek() {
         #expect(LaterExpiry.quickDays == [1, 7])
     }

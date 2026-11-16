@@ -112,7 +112,9 @@ struct FoodScreen: View {
         }
         .takeQuantity($take)
         .sheet(item: $laterDate) { request in
-            DatePickerSheet("Other date", initial: request.earliest, earliest: request.earliest) { date in
+            let earliest = laterEarliest(request, content)
+            DatePickerSheet("Other date", initial: earliest, earliest: earliest) { date in
+                // The model checks the date again when the action runs, with the date of today then.
                 model.perform(.moveExpiry(batchId: request.batchId, date: date))
             }
         }
@@ -231,6 +233,18 @@ struct FoodScreen: View {
     /// quantity.
     private func addBatch() {
         navigator.present(.addFood(productId: productId, again: true))
+    }
+
+    /// The first date of "Other date" for the date of today now. A calendar that is open at midnight gets the first
+    /// date of the new day: an expired batch can then not get the date of today.
+    private func laterEarliest(_ request: LaterDateRequest, _ content: FridgeContent?) -> CalendarDate {
+        guard let content,
+              let expiry = content.inventory.batches.first(where: { $0.id == request.batchId })?.expiry?.date,
+              let first = LaterExpiry.date(expiry: expiry, today: content.today, days: 1)
+        else {
+            return request.earliest
+        }
+        return max(first, request.earliest)
     }
 
     /// Closes this screen in each tab that shows it, and the small sheets of this screen.

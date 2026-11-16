@@ -377,6 +377,23 @@ final class FridgeModel {
         return true
     }
 
+    /// Records all of one batch as used or as thrown away: the swipe on a food card, for the batch to use first that
+    /// the card shows. The quantity is the quantity of the batch when the write runs.
+    ///
+    /// A batch that ended before the write runs gets nothing, and there is no message. So two swipes that wait in the
+    /// queue end the batch one time, and the second swipe does not take from the next batch.
+    func takeWholeBatch(productId: String, batchId: String, outcome: Outcome) {
+        enqueue {
+            guard let batch = self.loaded?.inventory.batches.first(where: { $0.id == batchId }),
+                  batch.productId == productId, batch.isActive
+            else {
+                return
+            }
+            let take = InventoryAction.Take(productId: productId, batchIds: [batchId], quantity: batch.quantity, outcome: outcome)
+            await self.run(.take(take), formToken: nil, photo: nil)
+        }
+    }
+
     /// Writes the action and gives its result: the state of the form, or a message. It runs in the queue.
     private func run(_ action: InventoryAction, formToken: String?, photo: PreparedPhoto?) async {
         let result = await write(action)
@@ -451,7 +468,7 @@ final class FridgeModel {
         guard let current = loaded else {
             return .failed
         }
-        if Self.changesNothing(action, in: current.inventory) {
+        if Self.changesNothing(action, in: current.inventory) || !Self.isLater(action, in: current.inventory, today: clock.today) {
             return .done(changeIds: [], message: nil, undoable: false, productId: nil, removedProducts: [])
         }
         let planned: Planned.Changes
@@ -521,6 +538,19 @@ final class FridgeModel {
         default:
             return false
         }
+    }
+
+    /// False when the action gives a batch an expiry date that is not later: not after its expiry date, or not
+    /// after today. The check uses the date of today when the action runs, so a date that "Still good?" calculated
+    /// before midnight is not accepted when it is today after midnight. Such an action changes nothing. Each other
+    /// action gives true.
+    private static func isLater(_ action: InventoryAction, in inventory: Inventory, today: CalendarDate) -> Bool {
+        guard case .moveExpiry(let batchId, let date) = action,
+              let batch = inventory.batches.first(where: { $0.id == batchId })
+        else {
+            return true
+        }
+        return LaterExpiry.isLater(date, expiry: batch.expiry?.date, today: today)
     }
 
     // MARK: - Messages

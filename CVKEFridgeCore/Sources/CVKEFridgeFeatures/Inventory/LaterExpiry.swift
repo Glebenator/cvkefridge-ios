@@ -22,4 +22,14 @@ public enum LaterExpiry {
         }
         return max(expiry, today).plusDays(days)
     }
+
+    /// True when `date` is a later expiry date for a batch: after its expiry date and after today. A batch with no
+    /// expiry date needs a date after today.
+    ///
+    /// The app calls it when the action runs, with the date of today at that time. So a date that the person selected
+    /// before midnight is not accepted after midnight when it is today then. The Android app accepts each date
+    /// (defect 6 of `docs/android-parity-plan.md`). The Android app has no such function.
+    public static func isLater(_ date: CalendarDate, expiry: CalendarDate?, today: CalendarDate) -> Bool {
+        date > max(expiry ?? today, today)
+    }
 }

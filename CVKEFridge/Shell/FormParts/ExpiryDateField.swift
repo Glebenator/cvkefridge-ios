@@ -239,6 +239,16 @@ struct DatePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(role: .confirm) {
                         if let date = Wording.calendarDate(of: selection) {
+                            // The limits can change while the calendar is open, for example at midnight. A date
+                            // out of the limits goes to the nearest limit, and the person confirms again.
+                            if let earliest, date < earliest {
+                                selection = Wording.instant(of: earliest)
+                                return
+                            }
+                            if let latest, date > latest {
+                                selection = Wording.instant(of: latest)
+                                return
+                            }
                             onConfirm(date)
                         }
                         dismiss()
