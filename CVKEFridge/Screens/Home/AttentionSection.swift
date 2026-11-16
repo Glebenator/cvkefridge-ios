@@ -129,8 +129,8 @@ private struct AttentionCard: View {
     let batch: AttentionBatch
     let onOpen: () -> Void
 
-    /// The width at the default text size. It grows with the text size, to 300 points at most.
-    @ScaledMetric(relativeTo: .body) private var width: CGFloat = 180
+    /// The width at the default text size. It grows with the text size, to `Metrics.rowCardMaxWidth` at most.
+    @ScaledMetric(relativeTo: .body) private var width: CGFloat = Metrics.rowCardWidth
 
     var body: some View {
         let tone: CardTone = batch.freshness == .expired ? .expired : .expiring
@@ -154,7 +154,7 @@ private struct AttentionCard: View {
                 }
                 .frame(maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(width: min(width, 300))
+            .frame(width: min(width, Metrics.rowCardMaxWidth))
         }
         .buttonStyle(.card)
         .accessibilityLabel(Text(verbatim: batch.name))

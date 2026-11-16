@@ -38,6 +38,9 @@ struct EmptyStateView<Actions: View>: View {
             }
             .multilineTextAlignment(.center)
             FlowLayout(alignment: .center) { actions }
+                // In a row of a list, a label has a large icon in a column of its own. The buttons of an empty
+                // state look the same in a list and out of a list.
+                .labelStyle(.titleAndIcon)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Space.s8)
