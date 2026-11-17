@@ -2,8 +2,8 @@
 
 [![iOS CI](https://github.com/Glebenator/cvkefridge-ios/actions/workflows/ios.yml/badge.svg?branch=main)](https://github.com/Glebenator/cvkefridge-ios/actions/workflows/ios.yml?query=branch%3Amain)
 
-A native iOS app for the food inventory of a fridge. The first build has one start screen and no features. It proves
-that the project builds and that its tests run in CI. Built with SwiftUI and the iOS 26 design.
+A native iOS app for the food inventory of a fridge. It has the features of the Android app, with the same product
+rules and the same words, and each control is the native iOS control. Built with SwiftUI and the iOS 26 design.
 
 CVKE Fridge has three repositories:
 
@@ -16,10 +16,16 @@ CVKE Fridge has three repositories:
 ## Status
 
 - **Development build.** The app is not published. The bundle ID `com.example.cvkefridge` is a development ID.
-- **Scope.** One static start screen. It shows the name, one line about the app, and the version.
-- **Core rules.** The `CVKEFridgeCore` package has the product rules of `spec/rules.md`: calendar dates, freshness,
-  the expiry estimate, the use-first order, the plan of a use, and the replay of the change log. No screen uses them
-  yet.
+- **Scope.** Home, My Fridge, the screen of a food, the add form, the edit forms, History, the barcode scanner
+  with the product lookup, photos, the daily reminder, storage areas, and Settings.
+  [docs/android-parity-plan.md](docs/android-parity-plan.md) has the structure, the differences from Android, and
+  the Android defects that this app does not copy.
+- **Core rules.** The `CVKEFridgeCore` package has two targets. `CVKEFridgeCore` has the product rules of
+  `spec/rules.md`. `CVKEFridgeFeatures` has the rules of the forms, History, the lookup, the reminder, and the photo
+  files. The two use Foundation only.
+- **Network.** The app connects only to `world.openfoodfacts.org`, for the product lookup of a barcode.
+- **Not checked on a real iPhone yet.** The camera and the scanner, a photo from the camera, haptics, the time of a
+  reminder, VoiceOver, battery use, and speed.
 - **CI.** The badge above shows the result of the newest run on `main`. Select it to see all runs.
 
 ### What CI checks
@@ -31,12 +37,15 @@ The workflow [`ios.yml`](.github/workflows/ios.yml) runs for each push to `main`
 |---|---|---|
 | Copy of the shared specification | `python3 scripts/update-spec.py --check` | Yes |
 | Product rules | `swift test` in `CVKEFridgeCore`, with each case in `spec/vectors/` | Yes |
-| App and UI test build | `xcodebuild build-for-testing`, without signing | Yes |
-| The shell in light mode | `ShellUITests` | Yes |
-| The shell in dark mode | `ShellUITests` | Yes |
+| Rules of the features | `swift test` in `CVKEFridgeCore`, the ported tests of the Android app | Yes |
+| App and test build | `xcodebuild build-for-testing`, without signing | Yes |
+| Unit tests of the app | `CVKEFridgeTests` | Yes |
+| All UI tests in light mode | `CVKEFridgeUITests` | Yes |
+| All UI tests in dark mode | `CVKEFridgeUITests` | Yes |
+| Largest text size | `CVKEFridgeUITests`, on a Mac | No |
 | Real iPhone checks | Manual | No |
 
-Each run uploads the screenshots of the shell tests as the `ios-captures` artifact.
+Each run uploads the screenshots of the UI tests as the `ios-captures` artifact.
 
 ## Build and run
 
@@ -56,9 +65,14 @@ The app needs no API key.
   each case through the core. They compare the complete expected result. A missing file, or a section with no cases,
   makes a test fail. The Android core tests use the same vector files. The core uses Foundation only, so that the
   tests can also run on Linux with the Swift toolchain.
-- **UI tests.** `ShellUITests` starts the debug build with the sample inventory in a data folder of its own. It
-  checks the tabs, the add button, a form in a sheet, and a message with "Undo", and it attaches screenshots.
-  `CVKEFridge/App/LaunchOptions.swift` has the launch arguments of the debug build, for example `-inventory sample`.
+- **Feature tests.** The same command runs the tests of `CVKEFridgeFeatures`. They have the same cases as the
+  tests of the Android app module.
+- **Unit tests of the app.** `CVKEFridgeTests` tests the model, the change log file, the photo encoder, the reminder
+  triggers, and the scanner rules.
+- **UI tests.** `CVKEFridgeUITests` has one class for each area of the app. Each test starts the debug build in a
+  data folder of its own, with a fixed date, and attaches screenshots. No test uses the network: the product lookup
+  reads fixture files. `CVKEFridge/App/LaunchOptions.swift` has the launch arguments of the debug build, for example
+  `-inventory sample`.
 
   ```sh
   xcodebuild test -project CVKEFridge.xcodeproj -scheme CVKEFridge -destination "platform=iOS Simulator,name=<iPhone>"
@@ -68,7 +82,7 @@ The app needs no API key.
 
 ```text
 cvkefridge-ios/
-  project.yml                     XcodeGen project: the app and the UI tests
+  project.yml                     XcodeGen project: the app, its unit tests, and the UI tests
   spec/                           Copy of the shared specification. Do not edit.
   spec.ref                        The cvkefridge commit of the copy in spec/
   CVKEFridgeCore/                 Swift package with the product rules, Foundation only
@@ -85,13 +99,22 @@ cvkefridge-ios/
       Change.swift                A change in the change log
       ChangeCodec.swift           A change as JSON text
       Inventory.swift             Replay of the change log (rule 7)
+    Sources/CVKEFridgeFeatures/   The rules above the core, Foundation only. Port of the plain Kotlin of Android:
+                                  Inventory, History, Content, Lookup, Reminder, Photo
     Tests/CVKEFridgeCoreTests/    One test file for each vector file, and Vectors.swift, which reads spec/
+    Tests/CVKEFridgeFeaturesTests/  The ported tests of the Android app module
   CVKEFridge/
-    App/                          App entry
-    Screens/                      The start screen
-    Design/                       Colour tokens and spacing
-    Resources/                    App icon, accent colour, string catalog, and privacy manifest
-  CVKEFridgeUITests/              The UI test
+    App/                          App entry, launch arguments, the objects that live as long as the app
+    Model/                        FridgeModel (the inventory state and its actions) and the service protocols
+    Platform/                     Change log file, settings files, HTTP, scanner, photos, notifications, the day clock
+    Design/                       Colours, spacing, type, brand shapes, motion, haptics, and components
+    Shell/                        Tabs, navigation, sheets, messages with "Undo", and the shared form parts
+    Screens/                      One folder for each screen
+    Debug/                        Sample inventory and component gallery, debug build only
+    Resources/                    App icon, colours, string catalog, tables, and privacy manifest
+  CVKEFridgeTests/                Unit tests of the app
+  CVKEFridgeUITests/              UI tests, one class for each area
+  docs/android-parity-plan.md     The plan of the port from Android
   scripts/
     update-spec.py                Updates and checks the copy in spec/
     export-captures.py            Screenshot export for CI
