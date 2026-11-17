@@ -100,13 +100,13 @@ struct PhotoSourceButtons: View {
         Group {
             if isBusy || loading {
                 busy
-                    .transition(.opacity)
+                    .transition(.fade)
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: Space.s5) { buttons }
                     VStack(alignment: .leading, spacing: 0) { buttons }
                 }
-                .transition(.opacity)
+                .transition(.fade)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

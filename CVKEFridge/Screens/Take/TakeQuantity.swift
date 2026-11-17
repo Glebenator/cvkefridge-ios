@@ -174,6 +174,9 @@ private struct TakeQuantitySheet: View {
             .accessibilityHint(used ? Text("Records the quantity as used.") : Text("Records the quantity as thrown away."))
             .accessibilityIdentifier("take_confirm")
         }
+        // The sheet has the surface of the app, as each form. With no fill, the half sheet was glass, and the
+        // screen below it showed through the question and the words.
+        .background(Palette.surface.ignoresSafeArea())
         .haptic(.error, trigger: problems)
     }
 

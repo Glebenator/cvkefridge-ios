@@ -111,13 +111,14 @@ cvkefridge-ios/
     Shell/                        Tabs, navigation, sheets, messages with "Undo", and the shared form parts
     Screens/                      One folder for each screen
     Debug/                        Sample inventory and component gallery, debug build only
-    Resources/                    App icon, colours, string catalog, tables, and privacy manifest
+    Resources/                    App icon, colours, category symbols, string catalog, tables, and privacy manifest
   CVKEFridgeTests/                Unit tests of the app
   CVKEFridgeUITests/              UI tests, one class for each area
   docs/android-parity-plan.md     The plan of the port from Android
   scripts/
     update-spec.py                Updates and checks the copy in spec/
     export-captures.py            Screenshot export for CI
+    make-category-symbols.py      Makes the symbols of dairy, meat, and bakery in the asset catalog
 ```
 
 ## Shared specification

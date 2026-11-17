@@ -12,8 +12,7 @@ import SwiftUI
 ///
 /// - The photo is `model.photos[productId]`. A photo that is ready in memory shows in the first frame
 ///   (`model.cachedImage(of:pixelSize:)`). If not, the icon shows while `model.image(of:pixelSize:)` decodes the
-///   photo off the main actor, and then the photo fades in over the icon. With Reduce Motion on, it comes with no
-///   fade.
+///   photo off the main actor, and then the photo fades in over the icon.
 /// - The picture is decoded for the side on the screen in pixels. When the row goes off the screen before the decode,
 ///   the decode does not start.
 /// - When the photo changes, the earlier photo stays until the new photo is ready, and then the new one fades in. When
@@ -28,7 +27,6 @@ struct ProductImage: View {
 
     @Environment(FridgeModel.self) private var model
     @Environment(\.displayScale) private var displayScale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
     /// The last photo that this view decoded or showed, with its picture.
     @State private var loaded: Loaded?
@@ -57,10 +55,10 @@ struct ProductImage: View {
             if let shown {
                 IconTile(category.icon, tone: tone, photo: Image(uiImage: shown.image), size: size)
                     .id(shown.photo)
-                    .transition(.opacity)
+                    .transition(.fade)
             }
         }
-        .animation(reduceMotion ? nil : Motion.enter, value: shown?.photo)
+        .motion(Motion.enter, value: shown?.photo)
         .modifier(Decorative(productId: productId, shown: shown?.photo))
         .task(id: Request(photo: photo, pixelSize: pixelSize)) {
             await load(photo, pixelSize: pixelSize)

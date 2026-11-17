@@ -149,12 +149,15 @@ struct MyFridgeScreen: View {
                         categoryOption(entry.category, label: entry.category.label, count: entry.foodCount, selected: view.category)
                     }
                 }
+                .haptic(.selection, trigger: view.category)
                 .accessibilityHint(Text("Shows the food of one category."))
                 .accessibilityIdentifier("filter_category")
                 freshnessChip(.expiring, "Expiring", count: view.expiringCount, identifier: "filter_expiring")
                 freshnessChip(.expired, "Expired", count: view.expiredCount, identifier: "filter_expired")
             }
         }
+        // With no note of the sample, the chips are the widest part. They stay at the leading edge.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentWidth()
     }
 
@@ -238,6 +241,9 @@ struct MyFridgeScreen: View {
                     Image(icon: .sort)
                 }
             }
+            // A menu of the system gives no signal for a new selection. The sort order gets the selection signal,
+            // as its direction and the storage areas do.
+            .haptic(.selection, trigger: sortKey)
             .accessibilityIdentifier("sort_key")
             Button {
                 ascending.toggle()

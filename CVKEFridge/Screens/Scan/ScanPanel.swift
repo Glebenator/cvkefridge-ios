@@ -70,7 +70,7 @@ struct ScanPanel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         // A change of the kind of content is a new view, which fades in.
         .id(kind)
-        .transition(.opacity)
+        .transition(.fade)
     }
 }
 

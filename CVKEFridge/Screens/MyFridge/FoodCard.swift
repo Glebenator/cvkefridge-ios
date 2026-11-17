@@ -69,7 +69,17 @@ struct FoodCard: View {
                             Text(verbatim: Wording.quantity(row.quantity, unit: row.unit))
                             daysLeft
                         } else {
-                            status
+                            // When the quantity and the days left do not fit on one line, the days left get a
+                            // line of their own. As one text on two lines, the line broke after the first word
+                            // of the days left ("Expired", and then "yesterday, estimated").
+                            ViewThatFits(in: .horizontal) {
+                                status
+                                    .lineLimit(1)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(verbatim: Wording.quantity(row.quantity, unit: row.unit))
+                                    daysLeft
+                                }
+                            }
                         }
                         if row.expiryDateCount > 1 {
                             Text(verbatim: Wording.expiryDateCount(row.expiryDateCount))
@@ -123,6 +133,8 @@ struct FoodCard: View {
             .accessibilityIdentifier("food_menu_\(row.key)")
         }
         .surface(Palette.surfaceContainerLow)
+        // The card that the context menu lifts has the round corners of the card, and no box of the row around it.
+        .contentShape(.contextMenuPreview, Radius.shape(Radius.large))
         .contextMenu {
             FoodCardMenu(onAction: onAction)
         }

@@ -61,6 +61,10 @@ struct FormSheet<Content: View, Actions: View>: View {
                     .listRowBackground(Palette.surfaceContainer)
             }
             .scrollContentBackground(.hidden)
+            // The rows go below the bar with the title and the close button. With the soft edge of the system, a
+            // row with a strong colour (the scan card) or with large text showed through the bar, and it was not
+            // possible to read the title and the row. The hard edge hides the rows below the bar.
+            .scrollEdgeEffectStyle(.hard, for: .top)
             .scrollDismissesKeyboard(.interactively)
             .contentWidth()
             .noticeHost()
@@ -251,14 +255,18 @@ struct FieldProblem: View {
     }
 
     var body: some View {
-        Label {
-            Text(verbatim: message)
-        } icon: {
+        // A `Label` in a row of a form has the large icon of a list row, in a column of its own, and the line below
+        // the row then starts at the words. The problem is a note below a field: its icon has the size of its words,
+        // and the line below the row keeps its full length.
+        HStack(alignment: .firstTextBaseline, spacing: Space.s1) {
             Image(icon: .alert, filled: true)
+                .accessibilityHidden(true)
+            Text(verbatim: message)
+                .accessibilityIdentifier(identifier ?? "field_problem")
         }
         .font(Typography.caption)
         .foregroundStyle(Palette.error)
-        .accessibilityIdentifier(identifier ?? "field_problem")
+        .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
     }
 }
 

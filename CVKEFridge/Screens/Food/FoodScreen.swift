@@ -161,7 +161,7 @@ struct FoodScreen: View {
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("no_batches")
-                .transition(.opacity)
+                .transition(.fade)
             } else {
                 batches(detail, content)
             }

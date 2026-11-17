@@ -56,7 +56,7 @@ struct ReminderOffer: View {
             if let offered {
                 card(offered)
                     .padding(.top, Space.s4)
-                    .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                    .transition(.scaleFade(0.96, anchor: .top))
             }
         }
         .motion(Motion.exit, value: offered == nil)

@@ -204,6 +204,12 @@ enum Metrics {
     static let minTarget: CGFloat = 44
     /// The maximum width of a floating message.
     static let noticeMaxWidth: CGFloat = 480
+    /// The width of a card in a row that scrolls sideways, at the default text size. On an iPhone, the second card
+    /// is then cut at the edge of the screen, which shows that the row scrolls. The longest days left ("Expired
+    /// yesterday, estimated") have two lines in it.
+    static let rowCardWidth: CGFloat = 200
+    /// The maximum width of such a card with large text.
+    static let rowCardMaxWidth: CGFloat = 300
 }
 
 extension View {

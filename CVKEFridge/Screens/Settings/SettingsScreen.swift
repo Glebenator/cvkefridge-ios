@@ -135,9 +135,8 @@ struct SettingsScreen: View {
         }
     }
 
-    /// The lead time, as a menu. With an accessibility text size, the name and the value are one below the other,
-    /// and each has all of the width: the menu picker of the system cuts the name and the last line of the value
-    /// there.
+    /// The lead time, as a menu. The name and the value are side by side when they fit. When they do not fit, and
+    /// with an accessibility text size, they are one below the other, and each has all of the width.
     @ViewBuilder
     private func leadPicker(_ settings: ReminderSettings) -> some View {
         let choices = Picker("Remind me", selection: leadBinding(settings)) {
@@ -145,30 +144,46 @@ struct SettingsScreen: View {
                 Text(Wording.reminderLead(days: days)).tag(days)
             }
         }
-        if dynamicTypeSize.isAccessibilitySize {
-            Menu {
-                choices.pickerStyle(.inline)
-            } label: {
-                VStack(alignment: .leading, spacing: Space.s1) {
-                    Text("Remind me")
-                        .foregroundStyle(Palette.onSurface)
-                    HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
-                        Text(Wording.reminderLead(days: settings.leadDays))
-                        Image(systemName: "chevron.up.chevron.down")
-                            .imageScale(.small)
-                            .accessibilityHidden(true)
+        let value = HStack(alignment: .firstTextBaseline, spacing: Space.s2) {
+            Text(Wording.reminderLead(days: settings.leadDays))
+            Image(systemName: "chevron.up.chevron.down")
+                .imageScale(.small)
+                .accessibilityHidden(true)
+        }
+        let name = Text("Remind me")
+            .foregroundStyle(Palette.onSurface)
+        // The words of the lead time are long. The picker of the system puts them on a second line with an inset
+        // of its own, so the row is a menu with the layout of the app: the lead time is at the end of the row when
+        // it fits, and below the name, on the line of the name, when it does not fit.
+        Menu {
+            choices.pickerStyle(.inline)
+        } label: {
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: Space.s1) {
+                        name
+                        value
+                    }
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .firstTextBaseline, spacing: Space.s3) {
+                            name
+                            Spacer(minLength: 0)
+                            value
+                        }
+                        VStack(alignment: .leading, spacing: Space.s1) {
+                            name
+                            value
+                        }
                     }
                 }
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(.rect)
             }
-        } else {
-            choices.pickerStyle(.menu)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
         }
     }
 
-    /// The switch with its description. A change of the switch gives the haptic signal of the system.
     private func reminderSwitch(isOn: Bool) -> some View {
         Toggle(isOn: Binding(get: { isOn }, set: { on in on ? turnOn() : model.setRemindersOn(false) })) {
             Text("Expiry reminders")

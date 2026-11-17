@@ -24,6 +24,7 @@ struct ExpiryDateField: View {
     private let earliest: CalendarDate?
 
     @State private var picking = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// - Parameters:
     ///   - input: What the person selected for the expiry date.
@@ -58,7 +59,9 @@ struct ExpiryDateField: View {
                 LabeledContent {
                     HStack(spacing: Space.s2) {
                         Text(verbatim: value)
-                            .multilineTextAlignment(.trailing)
+                            // With an accessibility text size, the value is below the name of the field, and
+                            // its lines start at the leading edge as the name does.
+                            .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                         Image(icon: .calendar)
                             .foregroundStyle(Palette.primary)
                             .accessibilityHidden(true)
