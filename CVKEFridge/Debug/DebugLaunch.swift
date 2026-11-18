@@ -25,7 +25,7 @@ enum DebugLaunch {
         options.changeLog = environment["CVKE_CHANGE_LOG"]
         options.httpFixtures = environment["CVKE_HTTP_FIXTURES"]
         if arguments.contains("-longNotices") {
-            options.noticeTimeScale = 5
+            options.noticeTimeScale = 3
         }
         switch environment["CVKE_NOTIFICATIONS"] {
         case "allowed": options.notificationAccess = .allowed

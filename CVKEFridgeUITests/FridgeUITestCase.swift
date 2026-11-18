@@ -81,7 +81,7 @@ class FridgeUITestCase: XCTestCase {
     ///   - lookups: The answers of the product lookup, by barcode. A barcode that is not there gets no connection.
     ///   - notifications: What the notification permission says: `ask`, `allowed`, `blocked`, or `alertsOff`.
     ///   - keepsStore: True to keep the files of an earlier start of the same test.
-    ///   - longNotices: True to keep a message on the screen 5 times longer (`-longNotices`), so that a slow
+    ///   - longNotices: True to keep a message on the screen 3 times longer (`-longNotices`), so that a slow
     ///     simulator does not close it before the test selects its button. False for a test that waits until a
     ///     message closes by itself.
     ///   - arguments: More launch arguments.
@@ -245,6 +245,11 @@ class FridgeUITestCase: XCTestCase {
                         // The element is below the keyboard or the bar above it, and the content does not move
                         // more. A person closes the keyboard then.
                         hideKeyboard()
+                    }
+                    if stops == 3 {
+                        // A message of the app covers the end of the content. The UI tests keep a message on the
+                        // screen for a longer time (`-longNotices`), so the search waits until it closes.
+                        waitForNoticeToClose()
                     }
                     // The bars can be different now: a sheet completed its close, a message went away, or a drag
                     // closed the keyboard.
@@ -414,6 +419,15 @@ class FridgeUITestCase: XCTestCase {
             key.tap()
             _ = keyboard.waitForNonExistence(timeout: 5)
             return
+        }
+    }
+
+    /// Waits until the message of the app closes by itself, when there is one. A drag on the message can get to the
+    /// row below it and do the swipe action of the row, so the test does not swipe the message away.
+    func waitForNoticeToClose() {
+        let notice = element("notice")
+        if notice.exists {
+            _ = notice.waitForNonExistence(timeout: 30)
         }
     }
 
