@@ -60,6 +60,20 @@ final class ShellUITests: FridgeUITestCase {
         XCTAssertTrue(tab("Home").isSelected)
     }
 
+    func test2bAMessageWithUndoClosesByItself() throws {
+        // The usual time of a message: 8 seconds for a message with a button.
+        launch(inventory: .sample, longNotices: false)
+        expect(app.staticTexts["hero_total"], "Home does not show the number of foods")
+        tab("Add food").tap()
+        type("Kiwi", in: expect(app.textFields["field_name"], "The add form did not open"))
+        app.buttons["save"].tap()
+
+        let message = expect(app.staticTexts["Kiwi added"], "The message of the add did not show")
+        waitToGo(message, "The message did not close by itself", timeout: 20)
+        XCTAssertFalse(app.buttons["Undo"].exists, "Undo stayed after the message closed")
+        XCTAssertEqual(app.staticTexts["hero_total"].label, "13", "The add is not in the inventory")
+    }
+
     func test3ALineThatIsNotAChangeDoesNotStopTheApp() throws {
         // One change that the app can read, and one line that is not a change.
         let log = """

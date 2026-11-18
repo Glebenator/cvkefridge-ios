@@ -24,6 +24,9 @@ enum DebugLaunch {
         options.today = (value("-today") ?? environment["CVKE_TODAY"]).flatMap(CalendarDate.parse)
         options.changeLog = environment["CVKE_CHANGE_LOG"]
         options.httpFixtures = environment["CVKE_HTTP_FIXTURES"]
+        if arguments.contains("-longNotices") {
+            options.noticeTimeScale = 5
+        }
         switch environment["CVKE_NOTIFICATIONS"] {
         case "allowed": options.notificationAccess = .allowed
         case "blocked": options.notificationAccess = .blocked

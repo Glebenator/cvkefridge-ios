@@ -227,7 +227,9 @@ final class FoodUITests: FridgeUITestCase {
         expect(app.buttons["empty_add"], "The empty My Fridge has no add form").tap()
         let name = expect(app.textFields["field_name"], "The add form did not open")
         name.typeText("Kiwi")
-        // The elements are found before the save, so that the test loses no time while the message shows.
+        // The elements are found before the save, so that the test loses no time while the message shows. The test
+        // starts the app with `-longNotices` (see `launch`), so a slow simulator does not close the message before
+        // the tap on "Undo".
         let kiwi = card(named: "Kiwi")
         let undo = app.buttons["Undo"]
         let title = app.staticTexts["food_name"]

@@ -13,7 +13,8 @@ import UIKit
 // tab bar when the sheet closed.
 //
 // - The message comes up from below, and a new message replaces the one on the screen.
-// - It stays 4 seconds, or 8 seconds with a button. With VoiceOver or Switch Control it stays longer.
+// - It stays 4 seconds, or 8 seconds with a button. With VoiceOver or Switch Control it stays longer. The debug build
+//   can make the time longer for the UI tests (`LaunchOptions.noticeTimeScale`).
 // - The time stops while a finger is on the message, and while VoiceOver is on its text or its button. It starts again
 //   after that. The time also stops while a presentation without a host covers the message (see `CoverProbe`).
 // - A swipe to the side or down removes it. VoiceOver has the escape gesture.
@@ -35,6 +36,10 @@ extension EnvironmentValues {
     /// False for the hosts of a sheet that closes. The message then shows below the sheet at once, and it does not
     /// go away with the sheet.
     @Entry var noticeHostEnabled = true
+
+    /// The factor for the time that a message stays on the screen: 1, or more for the UI tests
+    /// (`LaunchOptions.noticeTimeScale`).
+    @Entry var noticeTimeScale: Double = 1
 }
 
 /// The hosts that are on the screen, and which of them shows the message.
@@ -130,6 +135,7 @@ private struct NoticeView: View {
     @Environment(FridgeModel.self) private var model
     @Environment(NoticeStage.self) private var stage
     @Environment(\.undoManager) private var undoManager
+    @Environment(\.noticeTimeScale) private var timeScale
     /// True while a finger is on the message. It goes back to false also when the system stops the gesture.
     @GestureState private var pressed = false
     @State private var undoTarget = UndoTarget()
@@ -198,7 +204,7 @@ private struct NoticeView: View {
     private var seconds: Double {
         let base = notice.action == nil ? Self.plainSeconds : Self.actionSeconds
         let assistive = UIAccessibility.isVoiceOverRunning || UIAccessibility.isSwitchControlRunning
-        return assistive ? base * Self.assistiveFactor : base
+        return (assistive ? base * Self.assistiveFactor : base) * timeScale
     }
 
     private func perform() {

@@ -81,6 +81,9 @@ class FridgeUITestCase: XCTestCase {
     ///   - lookups: The answers of the product lookup, by barcode. A barcode that is not there gets no connection.
     ///   - notifications: What the notification permission says: `ask`, `allowed`, `blocked`, or `alertsOff`.
     ///   - keepsStore: True to keep the files of an earlier start of the same test.
+    ///   - longNotices: True to keep a message on the screen 5 times longer (`-longNotices`), so that a slow
+    ///     simulator does not close it before the test selects its button. False for a test that waits until a
+    ///     message closes by itself.
     ///   - arguments: More launch arguments.
     func launch(
         inventory: StartInventory = .sample,
@@ -88,6 +91,7 @@ class FridgeUITestCase: XCTestCase {
         lookups: [String: LookupAnswer] = [:],
         notifications: String = "ask",
         keepsStore: Bool = false,
+        longNotices: Bool = true,
         arguments: [String] = []
     ) {
         // The name of the test is the name of its data folder.
@@ -95,6 +99,9 @@ class FridgeUITestCase: XCTestCase {
         var launchArguments = ["-uiTestStore", store, "-today", today]
         if keepsStore {
             launchArguments.append("-uiTestKeepStore")
+        }
+        if longNotices {
+            launchArguments.append("-longNotices")
         }
         switch inventory {
         case .sample:

@@ -31,6 +31,7 @@ struct CVKEFridgeApp: App {
             .environment(environment.model)
             .environment(environment.navigator)
             .environment(environment.noticeStage)
+            .environment(\.noticeTimeScale, environment.options.noticeTimeScale)
             .task { await environment.start() }
     }
 }
