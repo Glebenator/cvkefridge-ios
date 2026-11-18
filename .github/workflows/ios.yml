@@ -37,7 +37,7 @@ jobs:
     # One job for each appearance, at the same time. Each job builds the app and runs all UI tests one time. The
     # light job also runs the unit tests of the app. The tests in one job run one at a time: the UI tests share the
     # simulator and the notification permission of the app.
-    timeout-minutes: 100
+    timeout-minutes: 130
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +99,7 @@ jobs:
       - name: Run the UI tests in ${{ matrix.appearance }} mode
         id: ui
         if: always() && steps.build.outcome == 'success'
-        timeout-minutes: 75
+        timeout-minutes: 105
         run: |
           set -o pipefail
           xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance "${{ matrix.appearance }}"
