@@ -13,8 +13,8 @@ import UIKit
 ///   settings of the app. When the person comes back with notifications on, reminders go on. When the person comes
 ///   back with notifications still off, nothing occurs, and the flow forgets the visit.
 ///
-/// The value has no side effects. Each step gives the `Effect` that the screen must do. `reminderAccess(_:onTurnOn:onDeclined:)`
-/// shows the alerts and does the effects.
+/// The value has no side effects. Each step gives the `Effect` that the screen must do. The modifier
+/// `reminderAccess(_:onTurnOn:onDeclined:)` shows the alerts and does the effects.
 struct ReminderAccessFlow: Equatable {
     /// The alert on the screen.
     enum Dialog: Equatable {
