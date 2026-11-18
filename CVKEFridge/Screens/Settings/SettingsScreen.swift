@@ -11,32 +11,24 @@ import UIKit
 /// - The reminder settings are `model.reminders`: `.loading`, `.unreadable` (the file cannot be read: say so, and
 ///   change nothing until the person changes a setting), or `.ready(ReminderSettings)`.
 /// - `model.notificationAccess` says if iOS shows the reminders (`.allowed`, `.ask`, `.blocked`, `.alertsOff`).
-///   Explain the notifications before `await model.requestNotificationAccess()`. When access is `.blocked` or
-///   `.alertsOff`, offer the Settings app. `RootView` reads the access again when the app comes back.
+///   `ReminderAccessFlow` explains the notifications before iOS asks, and offers the Settings app when access is
+///   `.blocked` or `.alertsOff`. The offer on Home uses the same flow.
 /// - Changes: `model.setRemindersOn(_:)`, `model.setReminderTime(minuteOfDay:)`, `model.setReminderLeadDays(_:)`.
 ///   The choices of the lead time are `ReminderRules.leadDayChoices`. Words: `Wording.reminderLead(days:)` and
 ///   `Wording.time(_:)`. `ReminderSettings.next` is the date of the next reminder, or nil when no food needs one.
 /// - iOS has no wallpaper colours, so the screen has no "Appearance" group.
 /// - About: the version is `AppVersion.current.label`.
 ///
-/// The switch turns reminders on in the way that iOS needs. iOS asks for the permission one time only:
-/// - Notifications are allowed: reminders go on at once.
-/// - The app did not ask yet: an alert explains the reminders first. "Continue" shows the question of iOS. Reminders go
-///   on when the person allows notifications.
-/// - iOS does not show the notifications of the app: an alert says so, and "Open settings" opens the notification
-///   settings of the app. When the person comes back with notifications on, reminders go on.
+/// The switch turns reminders on with the steps of `ReminderAccessFlow`, in the way that iOS needs.
 ///
 /// While reminders are on and iOS does not show them, a card says so each time, with the action that fixes it.
 struct SettingsScreen: View {
     @Environment(FridgeModel.self) private var model
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// The alert of the switch, or nil.
-    @State private var dialog: AccessDialog?
-    /// True while the person is in the Settings app to turn on notifications for the switch.
-    @State private var turnOnOnReturn = false
+    /// The steps that turn reminders on with the notification permission.
+    @State private var access = ReminderAccessFlow()
     /// Changes each time reminders go on, for the haptic signal.
     @State private var turnedOn = 0
 
@@ -59,36 +51,7 @@ struct SettingsScreen: View {
         .navigationTitle("Settings")
         .accessibilityIdentifier("settings_screen")
         .haptic(.success, trigger: turnedOn)
-        .alert(
-            dialog?.title ?? "",
-            isPresented: Binding(get: { dialog != nil }, set: { if !$0 { dialog = nil } }),
-            presenting: dialog
-        ) { dialog in
-            switch dialog {
-            case .explain:
-                Button("Not now", role: .cancel) {}
-                Button("Continue") { askForAccess() }
-            case .openSettings:
-                Button("Cancel", role: .cancel) {}
-                Button("Open settings") {
-                    turnOnOnReturn = true
-                    openNotificationSettings()
-                }
-            }
-        } message: { dialog in
-            Text(dialog.message)
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active && turnOnOnReturn {
-                turnOnOnReturn = false
-                Task {
-                    // iOS does not ask again, so this call only reads the access after the Settings app.
-                    if await model.requestNotificationAccess() == .allowed {
-                        enable()
-                    }
-                }
-            }
-        }
+        .reminderAccess($access, onTurnOn: enable)
     }
 
     // MARK: Reminders
@@ -222,36 +185,15 @@ struct SettingsScreen: View {
 
     /// The person turned the switch on.
     private func turnOn() {
-        switch model.notificationAccess {
-        case .allowed:
+        if access.turnOn(access: model.notificationAccess) == .turnOn {
             enable()
-        case .ask, nil:
-            dialog = .explain
-        case .blocked:
-            dialog = .openSettings(.blocked)
-        case .alertsOff:
-            dialog = .openSettings(.alertsOff)
         }
     }
 
     /// The action of the card of an access problem.
-    private func fix(_ access: NotificationAccess) {
-        switch access {
-        case .ask:
-            dialog = .explain
-        case .blocked, .alertsOff:
-            openNotificationSettings()
-        case .allowed:
-            break
-        }
-    }
-
-    /// Shows the question of iOS after the explanation. Reminders go on when the person allows notifications.
-    private func askForAccess() {
-        Task {
-            if await model.requestNotificationAccess() == .allowed {
-                enable()
-            }
+    private func fix(_ problem: NotificationAccess) {
+        if access.fix(problem) == .openSettings {
+            openNotificationSettings(openURL)
         }
     }
 
@@ -261,12 +203,6 @@ struct SettingsScreen: View {
         }
         model.setRemindersOn(true)
         turnedOn += 1
-    }
-
-    private func openNotificationSettings() {
-        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-            openURL(url)
-        }
     }
 
     // MARK: About
@@ -332,39 +268,6 @@ struct SettingsScreen: View {
         }
     }
     #endif
-}
-
-/// The alert of the switch.
-private enum AccessDialog: Identifiable {
-    /// The explanation before iOS asks for the permission.
-    case explain
-    /// iOS does not show the notifications, and only the Settings app can change it.
-    case openSettings(NotificationAccess)
-
-    var id: String {
-        switch self {
-        case .explain: "explain"
-        case .openSettings: "openSettings"
-        }
-    }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .explain: "Allow notifications"
-        case .openSettings: "Notifications are off"
-        }
-    }
-
-    var message: LocalizedStringKey {
-        switch self {
-        case .explain:
-            "Reminders are notifications. Next, iOS asks if CVKE Fridge can send notifications. The app sends not more than one a day, and only when food needs attention. The app makes the reminder on your iPhone. No data leaves your iPhone."
-        case .openSettings(.alertsOff):
-            "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners. To get reminders, open the settings and turn them on."
-        case .openSettings:
-            "Notifications for CVKE Fridge are off. To get reminders, open the settings and turn them on."
-        }
-    }
 }
 
 /// The time of the reminder: the compact time picker of iOS, with the 12-hour or the 24-hour clock of the device.

@@ -514,7 +514,6 @@
       "comment" : "The value is the name of a food."
     },
     "Beverage" : {},
-    "CVKE Fridge can send notifications, but the Lock Screen, the Notification Center, and the banners are off for it. To get reminders, open the settings and turn one of them on." : {},
     "CVKE Fridge uses the camera to read barcodes, and to take a photo of a food when you ask. The pictures stay on your phone. The app does not send them." : {},
     "Camera access is off" : {},
     "Camera picture. Point the camera at a barcode." : {
@@ -806,7 +805,6 @@
     "Records the quantity as used." : {},
     "Remind me" : {},
     "Reminders" : {},
-    "Reminders are notifications. Next, iOS asks if CVKE Fridge can send notifications. The app sends not more than one a day, and only when food needs attention. The app makes the reminder on your iPhone. No data leaves your iPhone." : {},
     "Reminders are notifications. Next, iOS asks if CVKE Fridge can send notifications. The app sends not more than one a day, and only when food needs attention. The app makes the reminder on your phone. No data leaves your phone." : {},
     "Reminders are on" : {},
     "Remove %@ from Recent" : {},
@@ -1041,8 +1039,8 @@
       "comment" : "The name of a unit in a list of units."
     },
     "iOS does not ask again. To take a photo, open Settings, select CVKE Fridge, and allow the camera. You can also choose a photo." : {},
+    "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners. To get reminders, open the settings and turn one of them on." : {},
     "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners, so reminders cannot show." : {},
-    "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners. To get reminders, open the settings and turn them on." : {},
     "kg" : {
       "comment" : "The name of a unit in a list of units."
     },

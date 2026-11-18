@@ -197,8 +197,15 @@ final class ReminderPlanner {
     /// Reads again if iOS shows the reminders.
     func refreshAccess() {
         Task {
-            notificationAccess = await service.access()
+            _ = await readAccess()
         }
+    }
+
+    /// Reads again if iOS shows the reminders, and gives the access.
+    func readAccess() async -> NotificationAccess {
+        let access = await service.access()
+        notificationAccess = access
+        return access
     }
 
     // MARK: - The queue

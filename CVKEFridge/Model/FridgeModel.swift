@@ -1053,6 +1053,11 @@ final class FridgeModel {
         reminderPlanner.refreshAccess()
     }
 
+    /// Reads again if iOS shows the reminders, and gives the access. iOS does not ask the person.
+    func readNotificationAccess() async -> NotificationAccess {
+        await reminderPlanner.readAccess()
+    }
+
     /// A tap on the reminder: My Fridge with the food that is expiring or expired.
     func showAttention() {
         showCount += 1
