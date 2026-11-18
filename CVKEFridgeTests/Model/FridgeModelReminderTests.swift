@@ -108,4 +108,65 @@ struct FridgeModelReminderTests {
         try await Task.sleep(for: .milliseconds(200))
         #expect(await reminders.updates.count == 3)
     }
+
+    // MARK: - The switch
+
+    @Test func theAccessIsKnownWhenTheSettingsAreRead() async throws {
+        let fixture = try ModelFixture(changes: Self.rice, reminders: RecordingReminders(access: .allowed))
+        defer { fixture.removeFolder() }
+        let model = fixture.model
+        model.start()
+        // Each time that a screen can show the switch, the model knows the access. With no access, a tap on the
+        // switch explained the notifications also when they were allowed.
+        var turns = 0
+        while model.reminders == .loading && turns < 100_000 {
+            await Task.yield()
+            turns += 1
+        }
+        #expect(model.reminders != .loading)
+        #expect(model.notificationAccess == .allowed)
+    }
+
+    @Test func theSwitchShowsTheSelectedValueWhileTheChangeWaits() async throws {
+        let fixture = try ModelFixture(changes: Self.rice, reminders: RecordingReminders())
+        defer { fixture.removeFolder() }
+        let model = fixture.model
+        model.start()
+        #expect(await eventually { model.reminders.settings != nil })
+
+        model.setRemindersOn(true)
+        // The settings do not have the change yet. The switch does not go back.
+        #expect(model.reminders.settings?.enabled == false)
+        #expect(model.remindersSwitchOn)
+        #expect(await eventually { model.reminders.settings?.enabled == true })
+        #expect(model.remindersSwitchOn)
+
+        // The newest selection decides.
+        model.setRemindersOn(false)
+        model.setRemindersOn(true)
+        model.setRemindersOn(false)
+        #expect(!model.remindersSwitchOn)
+        #expect(await eventually { model.reminders.settings?.enabled == false })
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!model.remindersSwitchOn)
+    }
+
+    @Test func aSwitchChangeThatCannotBeSavedGoesBack() async throws {
+        let fixture = try ModelFixture(changes: Self.rice, reminders: RecordingReminders())
+        defer { fixture.removeFolder() }
+        // A folder in the place of the file: the settings cannot be read or written.
+        try FileManager.default.createDirectory(
+            at: fixture.folder.appending(path: "reminders.json"),
+            withIntermediateDirectories: true
+        )
+        let model = fixture.model
+        model.start()
+        #expect(await eventually { model.reminders == .unreadable })
+
+        model.setRemindersOn(true)
+        #expect(model.remindersSwitchOn)
+        #expect(await eventually { model.notice?.text == .message(.settingsNotSaved) })
+        #expect(!model.remindersSwitchOn)
+        #expect(model.reminders == .unreadable)
+    }
 }

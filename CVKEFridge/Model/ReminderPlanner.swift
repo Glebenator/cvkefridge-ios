@@ -20,8 +20,12 @@ final class ReminderPlanner {
     /// The reminder settings.
     private(set) var reminders: ReminderState = .loading
 
-    /// If iOS shows the reminders, or nil before the first answer of the system.
+    /// If iOS shows the reminders, or nil before the first answer of the system. It is known before the settings.
     private(set) var notificationAccess: NotificationAccess?
+
+    /// The value of the switch that the person selected last, while its change waits in the queue, or nil. The switch
+    /// shows it, so a tap does not seem to go back while the change waits.
+    private(set) var requestedEnabled: Bool?
 
     /// Shows a message of the settings, for example when the file cannot be written. The model sets it.
     @ObservationIgnored var onMessage: (@MainActor (NoticeMessage) -> Void)?
@@ -39,6 +43,8 @@ final class ReminderPlanner {
     @ObservationIgnored private var planWaits = false
     /// The number of plan requests. A plan that runs stops when this number changes: a newer plan follows it.
     @ObservationIgnored private var planRequests = 0
+    /// The number of `setEnabled` calls. Only the newest call clears `requestedEnabled`.
+    @ObservationIgnored private var enabledRequests = 0
     /// True when the last plan had reminders off and removed all reminders and the reminder of today. A plan with
     /// reminders off then has nothing to do with the notification center.
     @ObservationIgnored private var nothingPlanned = false
@@ -57,12 +63,14 @@ final class ReminderPlanner {
         }
         started = true
         enqueue {
+            // The access comes first. So a screen that shows the settings always knows the access: the switch never
+            // explains the notifications when they are allowed.
+            self.notificationAccess = await self.service.access()
             do {
                 self.reminders = .ready(try await self.store.read())
             } catch {
                 self.reminders = .unreadable
             }
-            self.notificationAccess = await self.service.access()
         }
     }
 
@@ -134,15 +142,30 @@ final class ReminderPlanner {
 
     // MARK: - The settings
 
+    /// Turns reminders on or off. `requestedEnabled` has the value until the change is written or failed. See
+    /// `update(_:then:)`.
+    func setEnabled(_ on: Bool, then: (@MainActor () -> Void)? = nil) {
+        enabledRequests += 1
+        let request = enabledRequests
+        requestedEnabled = on
+        update({ $0.enabled = on }, then: then) {
+            if self.enabledRequests == request {
+                self.requestedEnabled = nil
+            }
+        }
+    }
+
     /// Changes the settings, writes them, and plans the reminders again. Then `then` runs. A file that cannot be
     /// written gives the message `settingsNotSaved`, the settings stay as they were, and `then` does not run. When the
     /// file of the settings could not be read, the change starts from the default settings: the person then selects
-    /// the values again.
+    /// the values again. `always` runs at the end, also after a failed write.
     func update(
         _ change: @escaping @MainActor (inout ReminderSettings) -> Void,
-        then: (@MainActor () -> Void)? = nil
+        then: (@MainActor () -> Void)? = nil,
+        always: (@MainActor () -> Void)? = nil
     ) {
         enqueue {
+            defer { always?() }
             var settings = self.reminders.settings ?? .defaults
             let before = settings
             change(&settings)

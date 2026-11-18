@@ -42,7 +42,7 @@ struct ReminderOffer: View {
 
     /// The settings of the offer, or nil when Home does not offer reminders.
     private var offered: ReminderSettings? {
-        guard let settings = model.reminders.settings, !settings.enabled, !settings.offerDismissed,
+        guard let settings = model.reminders.settings, !model.remindersSwitchOn, !settings.offerDismissed,
               overview.foods.contains(where: { $0.expiry != nil })
         else {
             return nil
@@ -113,6 +113,8 @@ struct ReminderOffer: View {
                         turnOn()
                     }
                     .buttonStyle(.secondary(.compact))
+                    // The button waits until the app knows the notification access.
+                    .disabled(model.notificationAccess == nil)
                     .accessibilityHint(Text("Turns on the reminder of each day."))
                     .accessibilityIdentifier("reminder_offer_turn_on")
                 }

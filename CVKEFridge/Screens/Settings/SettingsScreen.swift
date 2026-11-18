@@ -101,7 +101,7 @@ struct SettingsScreen: View {
             }
         case .unreadable:
             Section {
-                reminderSwitch(isOn: false)
+                reminderSwitch
                 Label("Couldn't read the reminder settings. The planned reminders stay. A change here saves new settings.", systemImage: AppIcon.alert.symbol)
                     .foregroundStyle(Palette.onSurfaceVariant)
                     .accessibilityIdentifier("reminders_unreadable")
@@ -110,7 +110,7 @@ struct SettingsScreen: View {
             }
         case .ready(let settings):
             Section {
-                reminderSwitch(isOn: settings.enabled)
+                reminderSwitch
                 if settings.enabled {
                     if let access = model.notificationAccess, access != .allowed {
                         AccessProblem(access: access) { fix(access) }
@@ -184,11 +184,14 @@ struct SettingsScreen: View {
         }
     }
 
-    private func reminderSwitch(isOn: Bool) -> some View {
-        Toggle(isOn: Binding(get: { isOn }, set: { on in on ? turnOn() : model.setRemindersOn(false) })) {
+    /// The switch shows the value that the person selected, also while the change waits (`remindersSwitchOn`). It is
+    /// off until the model knows the notification access, so a tap never explains notifications that are allowed.
+    private var reminderSwitch: some View {
+        Toggle(isOn: Binding(get: { model.remindersSwitchOn }, set: { on in on ? turnOn() : model.setRemindersOn(false) })) {
             Text("Expiry reminders")
             Text("One notification a day names the food that expires soon or expired yesterday.")
         }
+        .disabled(model.notificationAccess == nil)
         .accessibilityIdentifier("reminders_switch")
     }
 
@@ -253,7 +256,7 @@ struct SettingsScreen: View {
     }
 
     private func enable() {
-        guard model.reminders.settings?.enabled != true else {
+        guard !model.remindersSwitchOn else {
             return
         }
         model.setRemindersOn(true)

@@ -23,6 +23,21 @@ final class SettingsUITests: FridgeUITestCase {
         (control.exists ? scrollTo(control, "The switch is not on the screen") : reminderSwitch).tap()
     }
 
+    /// Turns reminders on with one tap on the switch, with notifications allowed. The switch is off until the app knows
+    /// the notification access, so the tap waits until the switch is enabled and can get a tap. A screenshot shows
+    /// the screen when the switch does not go on.
+    private func turnOnRemindersWithOneTap() {
+        scrollBackTo(reminderSwitch, "Settings has no switch for the reminders")
+        let ready = NSPredicate(format: "enabled == true AND hittable == true")
+        wait(for: reminderSwitch, toMatch: ready, "The switch does not accept a tap", timeout: 20)
+        toggleReminders()
+        let isOn = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "1"), object: reminderSwitch)
+        if XCTWaiter().wait(for: [isOn], timeout: 20) != .completed {
+            capture("settings-switch-did-not-go-on")
+            XCTFail("Reminders did not go on after one tap (value \"\(value(of: reminderSwitch))\")")
+        }
+    }
+
     /// The label of the element, with normal spaces. The time format of iOS has a narrow space before "AM".
     private func text(_ element: XCUIElement) -> String {
         element.label.replacingOccurrences(of: "\u{202F}", with: " ")
@@ -81,15 +96,7 @@ final class SettingsUITests: FridgeUITestCase {
         launch(notifications: "allowed")
         openSettings()
         // With notifications allowed, the switch turns reminders on with no question.
-        toggleReminders()
-        // On a slow simulator, the first tap can come before the switch accepts taps. A switch that did not change
-        // gets one more tap. A tap on a switch that changed late would turn reminders off, so the wait is long.
-        let isOn = NSPredicate(format: "value == %@", "1")
-        let wentOn = XCTNSPredicateExpectation(predicate: isOn, object: reminderSwitch)
-        if XCTWaiter().wait(for: [wentOn], timeout: 20) != .completed {
-            toggleReminders()
-        }
-        waitFor(reminderSwitch, value: "1", "Reminders did not go on")
+        turnOnRemindersWithOneTap()
         XCTAssertFalse(app.alerts.firstMatch.exists, "An explanation came with notifications allowed")
 
         // The lead time, in the menu of the picker.
@@ -129,8 +136,8 @@ final class SettingsUITests: FridgeUITestCase {
     func test3SettingsSaysWhenIOSDoesNotShowTheReminders() throws {
         launch(notifications: "allowed")
         openSettings()
-        toggleReminders()
-        waitFor(reminderSwitch, value: "1", "Reminders did not go on")
+        turnOnRemindersWithOneTap()
+        XCTAssertFalse(app.alerts.firstMatch.exists, "An explanation came with notifications allowed")
 
         // The person turns off the banners, the Notification Center, and the Lock Screen in the Settings app.
         app.terminate()

@@ -62,6 +62,12 @@ final class FridgeModel {
         reminderPlanner.reminders
     }
 
+    /// The value that the switch of the reminders shows: the value that the person selected last, also while its
+    /// change waits to be written, or else the value of the settings.
+    var remindersSwitchOn: Bool {
+        reminderPlanner.requestedEnabled ?? reminders.settings?.enabled ?? false
+    }
+
     /// If iOS shows the reminders, or nil before the first answer of the system. `refreshNotificationAccess()` reads
     /// it again, for example when the person comes back from the Settings app. The model knows the access before it
     /// knows the settings: while `reminders` is `.loading`, the access can be nil.
@@ -1006,7 +1012,7 @@ final class FridgeModel {
     /// Turns reminders on or off. `fromOffer` is true for the offer on Home, which then says that reminders are on.
     /// Before the first "on", explain the notifications to the person and call `requestNotificationAccess()`.
     func setRemindersOn(_ on: Bool, fromOffer: Bool = false) {
-        reminderPlanner.update { $0.enabled = on } then: {
+        reminderPlanner.setEnabled(on) {
             if on && fromOffer {
                 self.post(.message(.remindersOn))
             }
