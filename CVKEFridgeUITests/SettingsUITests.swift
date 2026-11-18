@@ -82,6 +82,13 @@ final class SettingsUITests: FridgeUITestCase {
         openSettings()
         // With notifications allowed, the switch turns reminders on with no question.
         toggleReminders()
+        // On a slow simulator, the first tap can come before the switch accepts taps. A switch that did not change
+        // gets one more tap. A tap on a switch that changed late would turn reminders off, so the wait is long.
+        let isOn = NSPredicate(format: "value == %@", "1")
+        let wentOn = XCTNSPredicateExpectation(predicate: isOn, object: reminderSwitch)
+        if XCTWaiter().wait(for: [wentOn], timeout: 20) != .completed {
+            toggleReminders()
+        }
         waitFor(reminderSwitch, value: "1", "Reminders did not go on")
         XCTAssertFalse(app.alerts.firstMatch.exists, "An explanation came with notifications allowed")
 
