@@ -15,7 +15,8 @@ import Foundation
 ///   after the append. When the phone stops during an append, for example with an empty battery, the record is still
 ///   there at the next start. If the new lines are not all on the disk, `read()` then cuts the log back to its length
 ///   before the append. So a change of the unit never gives the new unit of the product with the old quantities of
-///   the batches. The record is in the folder of the log, which is not in the backup.
+///   the batches. The record is in the folder of the log, which is not in the backup. When a write fails and the log
+///   cannot be cut back at once, the record also stays, and the next read or append cuts the log back.
 ///
 /// A half line with no record (from an older version of the app) is a line that cannot be decoded, as before.
 ///
@@ -86,13 +87,18 @@ actor ChangeLogStore {
         try writeRecord(committed: end, expected: end + UInt64(data.count))
         do {
             try handle.seekToEnd()
-            try handle.write(contentsOf: data)
+            try write(data, to: handle)
             try handle.synchronize()
         } catch {
-            // No half line stays in the log.
-            try? handle.truncate(atOffset: end)
-            try? handle.synchronize()
-            try? FileManager.default.removeItem(at: record)
+            // No half line stays in the log. When the log cannot be cut back, the record stays: the next `read()` or
+            // `append(_:)` then cuts the log back with `recover()`.
+            do {
+                try truncate(handle, atOffset: end)
+                try handle.synchronize()
+                try? FileManager.default.removeItem(at: record)
+            } catch {
+                // The record stays.
+            }
             throw error
         }
         // The lines are on the disk. A record that stays is no problem: the next read finds all the lines.
@@ -142,7 +148,50 @@ actor ChangeLogStore {
         try handle.write(contentsOf: Data(kept.utf8))
         try handle.synchronize()
     }
+
+    /// Debug build only, for the tests: the failures of the next append.
+    struct Faults: Sendable {
+        /// The write of the new lines puts this number of lines on the disk, and then fails. Nil for no failure.
+        var writeLines: Int?
+        /// True when the log cannot be cut back after the failed write.
+        var truncate = false
+    }
+
+    private var faults = Faults()
+
+    /// Debug build only, for the tests: the next append fails as the `faults` say.
+    func injectFaults(_ faults: Faults) {
+        self.faults = faults
+    }
     #endif
+
+    /// Writes the new lines of an append.
+    private func write(_ data: Data, to handle: FileHandle) throws {
+        #if DEBUG
+        if let count = faults.writeLines {
+            faults.writeLines = nil
+            var kept = Data()
+            for line in data.split(separator: Self.lineFeed, omittingEmptySubsequences: false).prefix(count) {
+                kept.append(contentsOf: line)
+                kept.append(Self.lineFeed)
+            }
+            try handle.write(contentsOf: kept)
+            throw CocoaError(.fileWriteOutOfSpace)
+        }
+        #endif
+        try handle.write(contentsOf: data)
+    }
+
+    /// Cuts the log back to its length before a failed append.
+    private func truncate(_ handle: FileHandle, atOffset offset: UInt64) throws {
+        #if DEBUG
+        if faults.truncate {
+            faults.truncate = false
+            throw CocoaError(.fileWriteUnknown)
+        }
+        #endif
+        try handle.truncate(atOffset: offset)
+    }
 
     // MARK: The record of an append
 
@@ -197,7 +246,9 @@ actor ChangeLogStore {
         }
     }
 
-    /// Writes the record of an append and waits until it is on the disk.
+    /// Writes the record of an append and waits until it is on the disk. The record must be on the disk before the
+    /// new lines of the log, so the store asks the drive to write its cache also (`F_FULLFSYNC`). `fsync` alone
+    /// sends the data only to the drive, and the drive can write the lines of the log before the record.
     private func writeRecord(committed: UInt64, expected: UInt64) throws {
         guard FileManager.default.createFile(atPath: record.path, contents: nil) else {
             throw CocoaError(.fileWriteUnknown)
@@ -205,11 +256,19 @@ actor ChangeLogStore {
         let handle = try FileHandle(forWritingTo: record)
         defer { try? handle.close() }
         try handle.write(contentsOf: Data("\(committed) \(expected)\n".utf8))
-        try handle.synchronize()
+        try Self.fullSynchronize(handle)
         // The name of the new file is in the folder. The folder also goes on the disk before the append.
         if let folder = FileHandle(forReadingAtPath: record.deletingLastPathComponent().path) {
-            try? folder.synchronize()
+            try? Self.fullSynchronize(folder)
             try? folder.close()
+        }
+    }
+
+    /// Waits until the data of the file is on the disk, with the cache of the drive. Some file systems do not have
+    /// `F_FULLFSYNC`. The store then uses `fsync`.
+    private static func fullSynchronize(_ handle: FileHandle) throws {
+        if fcntl(handle.fileDescriptor, F_FULLFSYNC) == -1 {
+            try handle.synchronize()
         }
     }
 

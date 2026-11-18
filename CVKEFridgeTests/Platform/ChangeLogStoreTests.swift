@@ -124,6 +124,39 @@ struct ChangeLogStoreTests {
         #expect(try await store.read().changes == start + unitChange)
     }
 
+    @Test func anAppendThatFailsAndCannotCutTheLogKeepsItsRecordForTheNextRead() async throws {
+        defer { clean() }
+        let store = ChangeLogStore(file: file)
+        try await store.append(start)
+        let committed = try Data(contentsOf: file)
+
+        // The write stops after the first line of the action, and the log cannot be cut back.
+        await store.injectFaults(ChangeLogStore.Faults(writeLines: 1, truncate: true))
+        await #expect(throws: (any Error).self) { try await store.append(unitChange) }
+        #expect(try Data(contentsOf: file).count > committed.count)
+        #expect(FileManager.default.fileExists(atPath: file.path + ".append"), "The record of the append went")
+
+        // The next read cuts the log back to its length before the action, and then removes the record.
+        let contents = try await store.read()
+        #expect(contents.changes == start)
+        #expect(contents.skippedLines == 0)
+        #expect(try Data(contentsOf: file) == committed)
+        #expect(!FileManager.default.fileExists(atPath: file.path + ".append"))
+    }
+
+    @Test func anAppendThatFailsAndCutsTheLogLeavesNoRecord() async throws {
+        defer { clean() }
+        let store = ChangeLogStore(file: file)
+        try await store.append(start)
+        let committed = try Data(contentsOf: file)
+
+        await store.injectFaults(ChangeLogStore.Faults(writeLines: 1, truncate: false))
+        await #expect(throws: (any Error).self) { try await store.append(unitChange) }
+        #expect(try Data(contentsOf: file) == committed)
+        #expect(!FileManager.default.fileExists(atPath: file.path + ".append"))
+        #expect(try await store.read().changes == start)
+    }
+
     @Test func aHalfLineWithNoRecordIsSkippedAsBefore() async throws {
         defer { clean() }
         // A half line of an older version of the app, with no record of the append: the line is not read, and it
