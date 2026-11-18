@@ -139,6 +139,27 @@ struct InventoryContentTests {
         #expect(keys("stk").count == 7)
     }
 
+    @Test func theSearchTextIsInTheNameOfTheStorageAreaOnTheScreen() {
+        // The cards show the two fixed storage areas with names in the language of the person, and not the names in
+        // the inventory. The name of each other storage area is the text of the person.
+        func keys(_ query: String) -> [String] {
+            sample.filtered(
+                FoodFilter(query: query),
+                areaLabel: { id, name in
+                    switch id {
+                    case "fridge": "Kühlschrank"
+                    case "freezer": "Gefrierschrank"
+                    default: name
+                    }
+                }
+            ).rows.map(\.key)
+        }
+        #expect(keys("kuhlschrank") == ["eggs/fridge", "ham/fridge", "milk/fridge"])
+        #expect(keys("gefrier") == ["milk/freezer"])
+        #expect(keys("fridge") == [])
+        #expect(keys("pantry") == ["jam/pantry", "rice/pantry", "tea/pantry"])
+    }
+
     @Test func theSearchTextIsAlsoInTheNote() {
         let content = Self.content([
             .productSaved(

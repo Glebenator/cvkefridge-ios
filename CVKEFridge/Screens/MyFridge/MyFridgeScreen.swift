@@ -39,7 +39,8 @@ struct MyFridgeScreen: View {
         let view = overview?.filtered(
             navigator.myFridgeFilter,
             categoryLabel: Wording.categoryLabel,
-            unitLabel: Wording.unitLabel
+            unitLabel: Wording.unitLabel,
+            areaLabel: Wording.areaName
         )
         let rows = view.map { view in
             InventoryContent.sort(view.rows, key: sortKey, ascending: ascending, categoryLabel: Wording.categoryLabel)

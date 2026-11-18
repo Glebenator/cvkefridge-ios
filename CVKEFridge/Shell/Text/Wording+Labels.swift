@@ -94,7 +94,8 @@ extension Wording {
     }
 
     /// The name of a storage area on a screen. The two fixed storage areas have their names in the language of the
-    /// person. The name of each other storage area is the text of the person.
+    /// person. The name of each other storage area is the text of the person. The search of My Fridge compares the
+    /// search text with this name: give it to `InventoryContent.filtered` as `areaLabel`.
     ///
     /// - Parameters:
     ///   - id: The identifier of the storage area.

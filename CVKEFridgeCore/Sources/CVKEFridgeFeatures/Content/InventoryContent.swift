@@ -263,11 +263,13 @@ public struct InventoryContent: Hashable, Sendable {
     ///
     /// The Android app compares the search text with the key of the category and of the unit, for example "dairy".
     /// That works only in English. Give the words that the screen shows in `categoryLabel` and `unitLabel`. The
-    /// default is the key, as on Android.
+    /// default is the key, as on Android. In the same way, give the name of a storage area on the screen in
+    /// `areaLabel`, from its identifier and its name in the inventory. The default is the name in the inventory.
     public func filtered(
         _ filter: FoodFilter,
         categoryLabel: (CVKEFridgeCore.Category) -> String = { $0.rawValue },
-        unitLabel: (MeasureUnit) -> String = { $0.rawValue }
+        unitLabel: (MeasureUnit) -> String = { $0.rawValue },
+        areaLabel: (_ id: String, _ name: String) -> String = { _, name in name }
     ) -> FilteredFoods {
         let area = areas.first(where: { $0.id == filter.areaId })
         let inArea = area.map { area in foods.filter { $0.areaId == area.id } } ?? foods
@@ -277,7 +279,7 @@ public struct InventoryContent: Hashable, Sendable {
             if text.isEmpty {
                 return true
             }
-            let words = [row.name, categoryLabel(row.category), row.unit.map(unitLabel), row.areaName, row.note]
+            let words = [row.name, categoryLabel(row.category), row.unit.map(unitLabel), areaLabel(row.areaId, row.areaName), row.note]
             return words.contains(where: { word in word.map { Self.matches($0, text) } ?? false })
         }
         // The counts of one filter are for the rows that agree with the search text and with the other filter.
