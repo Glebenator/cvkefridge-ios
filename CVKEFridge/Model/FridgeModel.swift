@@ -13,12 +13,13 @@ import UIKit
 /// One model lives as long as the app. It owns each task that it starts: a load, a write, a lookup, and the work on a
 /// photo continue when the screen that started them closes. `cancelLookup()` stops a lookup.
 ///
-/// The loads, the writes, the work of the message buttons, the cleanup of the photos, and the changes of the reminder
-/// settings run one at a time, in the order of the calls (`enqueue`). The replay, the content of the screens, and all
-/// work with files run off the main actor.
+/// The loads, the writes, the work of the message buttons, and the cleanup of the photos run one at a time, in the
+/// order of the calls (`enqueue`). The replay, the content of the screens, and all work with files run off the main
+/// actor.
 ///
-/// The model also does the product lookup of the scanner, plans the reminders, and keeps the photos of the products.
-/// The parts that need the system are behind the protocols of `Services.swift`.
+/// The model also does the product lookup of the scanner and keeps the photos of the products. Its `ReminderPlanner`
+/// keeps the reminder settings and plans the reminders, in a queue of its own: a write of the inventory does not wait
+/// for the notification center. The parts that need the system are behind the protocols of `Services.swift`.
 @Observable
 @MainActor
 final class FridgeModel {
@@ -57,11 +58,16 @@ final class FridgeModel {
     private(set) var lookup: LookupState = .idle
 
     /// The reminder settings.
-    private(set) var reminders: ReminderState = .loading
+    var reminders: ReminderState {
+        reminderPlanner.reminders
+    }
 
     /// If iOS shows the reminders, or nil before the first answer of the system. `refreshNotificationAccess()` reads
-    /// it again, for example when the person comes back from the Settings app.
-    private(set) var notificationAccess: NotificationAccess?
+    /// it again, for example when the person comes back from the Settings app. The model knows the access before it
+    /// knows the settings: while `reminders` is `.loading`, the access can be nil.
+    var notificationAccess: NotificationAccess? {
+        reminderPlanner.notificationAccess
+    }
 
     /// The request of a tap on a reminder, or nil.
     private(set) var showRequest: ShowRequest?
@@ -161,8 +167,8 @@ final class FridgeModel {
     @ObservationIgnored private let readStorageHints: @Sendable () async throws -> StorageHints
     @ObservationIgnored private let clock: DayClock
     @ObservationIgnored private let lookupService: any ProductLookupService
-    @ObservationIgnored private let reminderService: any ReminderService
-    @ObservationIgnored private let reminderStore: JSONFileStore<ReminderSettings>
+    /// The reminder settings and the plan of the reminders.
+    @ObservationIgnored let reminderPlanner: ReminderPlanner
     @ObservationIgnored private let recentStore: JSONFileStore<RecentSettings>
     @ObservationIgnored private let photoService: any PhotoService
     @ObservationIgnored private let newId: @Sendable () -> String
@@ -208,12 +214,18 @@ final class FridgeModel {
         readStorageHints = dependencies.readStorageHints
         clock = dependencies.clock
         lookupService = dependencies.lookup
-        reminderService = dependencies.reminders
-        reminderStore = dependencies.reminderSettings
+        reminderPlanner = ReminderPlanner(
+            service: dependencies.reminders,
+            store: dependencies.reminderSettings,
+            clock: dependencies.clock
+        )
         recentStore = dependencies.recentSettings
         photoService = dependencies.photos
         camera = dependencies.camera
         newId = dependencies.newId
+        reminderPlanner.onMessage = { [weak self] message in
+            self?.post(.message(message))
+        }
     }
 
     /// Starts the model: reads the photos, the change log, and the settings, and plans the reminders. The app calls
@@ -233,18 +245,11 @@ final class FridgeModel {
         }
         // The model lives as long as the app, and this task with it.
         Task {
-            for await _ in reminderService.taps() {
+            for await _ in reminderPlanner.taps() {
                 showAttention()
             }
         }
-        enqueue {
-            do {
-                self.reminders = .ready(try await self.reminderStore.read())
-            } catch {
-                self.reminders = .unreadable
-            }
-            self.notificationAccess = await self.reminderService.access()
-        }
+        reminderPlanner.start()
         load()
     }
 
@@ -296,7 +301,7 @@ final class FridgeModel {
             }
             loaded = next
             state = .ready(await content(of: next))
-            await planReminders()
+            reminderPlanner.inventoryChanged(inventory)
             // No message with "Undo" can bring back a product of an earlier log.
             await cleanPhotos()
             if contents.skippedLines != announcedSkippedChanges {
@@ -320,8 +325,8 @@ final class FridgeModel {
             if let loaded = self.loaded, self.content?.today != self.clock.today {
                 self.state = .ready(await self.content(of: loaded))
             }
-            await self.planReminders()
         }
+        reminderPlanner.requestPlan()
     }
 
     private func content(of loaded: Loaded) async -> FridgeContent {
@@ -501,7 +506,8 @@ final class FridgeModel {
         next.inventory = inventory
         loaded = next
         state = .ready(await content(of: next))
-        await planReminders()
+        // The plan runs in the queue of the planner. The result of the write does not wait for it.
+        reminderPlanner.inventoryChanged(inventory)
 
         var productId: String?
         if case .addFood(let add) = action {
@@ -1000,7 +1006,7 @@ final class FridgeModel {
     /// Turns reminders on or off. `fromOffer` is true for the offer on Home, which then says that reminders are on.
     /// Before the first "on", explain the notifications to the person and call `requestNotificationAccess()`.
     func setRemindersOn(_ on: Bool, fromOffer: Bool = false) {
-        updateReminderSettings { $0.enabled = on } then: {
+        reminderPlanner.update { $0.enabled = on } then: {
             if on && fromOffer {
                 self.post(.message(.remindersOn))
             }
@@ -1012,7 +1018,7 @@ final class FridgeModel {
         guard (0..<ReminderSettings.minutesInDay).contains(minuteOfDay) else {
             return
         }
-        updateReminderSettings { $0.minuteOfDay = minuteOfDay }
+        reminderPlanner.update { $0.minuteOfDay = minuteOfDay }
     }
 
     /// Changes the lead time: the days before the expiry date from which a batch is in the reminder.
@@ -1020,12 +1026,12 @@ final class FridgeModel {
         guard ReminderRules.leadDayChoices.contains(days) else {
             return
         }
-        updateReminderSettings { $0.leadDays = days }
+        reminderPlanner.update { $0.leadDays = days }
     }
 
     /// Home does not offer reminders again, and a message says where the switch is.
     func dismissReminderOffer() {
-        updateReminderSettings { $0.offerDismissed = true } then: {
+        reminderPlanner.update { $0.offerDismissed = true } then: {
             self.post(.message(.remindersInSettings))
         }
     }
@@ -1033,17 +1039,12 @@ final class FridgeModel {
     /// Asks iOS for the notification permission, and records that the app asked. iOS shows its question only the
     /// first time. Explain the reminders to the person before this call. The result is the access after the answer.
     func requestNotificationAccess() async -> NotificationAccess {
-        let access = await reminderService.requestAccess()
-        notificationAccess = access
-        updateReminderSettings { $0.permissionAsked = true }
-        return access
+        await reminderPlanner.requestAccess()
     }
 
     /// Reads again if iOS shows the reminders. Call it when the person comes back from the Settings app.
     func refreshNotificationAccess() {
-        Task {
-            notificationAccess = await reminderService.access()
-        }
+        reminderPlanner.refreshAccess()
     }
 
     /// A tap on the reminder: My Fridge with the food that is expiring or expired.
@@ -1056,62 +1057,6 @@ final class FridgeModel {
     func showRequestDone(_ id: Int) {
         if showRequest?.id == id {
             showRequest = nil
-        }
-    }
-
-    /// Changes the reminder settings, writes them, and plans the reminders again. A file that cannot be written
-    /// gives a message, and the settings stay as they were. When the file of the settings could not be read, the
-    /// change starts from the default settings: the person then selects the values again.
-    private func updateReminderSettings(
-        _ change: @escaping @MainActor (inout ReminderSettings) -> Void,
-        then: (@MainActor () async -> Void)? = nil
-    ) {
-        enqueue {
-            var settings = self.reminders.settings ?? .defaults
-            let before = settings
-            change(&settings)
-            if settings != before || self.reminders.settings == nil {
-                do {
-                    try await self.reminderStore.write(settings)
-                } catch {
-                    self.post(.message(.settingsNotSaved))
-                    return
-                }
-                self.reminders = .ready(settings)
-                await self.planReminders()
-            }
-            await then?()
-        }
-    }
-
-    /// Plans the reminders of the next days again, for the inventory and the settings of now. It runs in the queue,
-    /// after each change of the inventory or of the settings, at each start, and after each change of the day, the
-    /// clock, or the time zone.
-    ///
-    /// Settings that are not read change nothing: the reminders that are planned stay. The Android app reads such
-    /// settings as "off" and removes its alarm.
-    ///
-    /// The reminder of a date comes one time only, also when the person then selects a later time. Only a reminder
-    /// that iOS showed makes its date the last date (`ReminderPlan.lastDate`): a time of the settings that passed is
-    /// not evidence, because the person can change the time after the plan.
-    private func planReminders() async {
-        guard var settings = reminders.settings, let inventory = loaded?.inventory else {
-            return
-        }
-        let before = settings
-        let now = clock.now()
-        let zone = clock.timeZone()
-        let today = ReminderSchedule.dateOf(now, timeZone: zone)
-        let shown = await reminderService.shownDates()
-        settings.lastDate = ReminderPlan.lastDate(settings, shown: shown, now: now, timeZone: zone)?.text
-        let planned = ReminderPlan.reminders(inventory: inventory, settings: settings, now: now, timeZone: zone)
-        settings.nextDate = planned.first?.date.text
-        let foods = settings.enabled ? ReminderRules.foods(inventory, today: today, leadDays: settings.leadDays) : []
-        await reminderService.update(planned: planned, todayFoods: foods, timeZone: zone)
-        if settings != before {
-            // A file that cannot be written leaves the old dates. The next plan calculates them again.
-            try? await reminderStore.write(settings)
-            reminders = .ready(settings)
         }
     }
 }

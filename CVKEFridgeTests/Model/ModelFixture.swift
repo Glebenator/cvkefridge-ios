@@ -11,18 +11,32 @@ struct ModelFixture {
     let photos = RecordingPhotoService()
     let model: FridgeModel
 
-    /// - Parameter changes: The change log at the start.
-    init(changes: [Change]) throws {
-        try self.init(changeLogText: changes.map { ChangeCodec.encode($0) + "\n" }.joined())
+    /// - Parameters:
+    ///   - changes: The change log at the start.
+    ///   - reminders: The reminder service, or nil for a service that does nothing.
+    ///   - reminderSettings: The reminder settings at the start, or nil for no file.
+    init(changes: [Change], reminders: (any ReminderService)? = nil, reminderSettings: ReminderSettings? = nil) throws {
+        try self.init(
+            changeLogText: changes.map { ChangeCodec.encode($0) + "\n" }.joined(),
+            reminders: reminders,
+            reminderSettings: reminderSettings
+        )
     }
 
     /// - Parameter changeLogText: The text of the change log at the start, or nil for no file.
-    init(changeLogText: String? = nil) throws {
+    init(
+        changeLogText: String? = nil,
+        reminders: (any ReminderService)? = nil,
+        reminderSettings: ReminderSettings? = nil
+    ) throws {
         folder = FileManager.default.temporaryDirectory.appending(path: "model-\(UUID().uuidString)", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let log = folder.appending(path: "changes.jsonl")
         if let changeLogText {
             try Data(changeLogText.utf8).write(to: log)
+        }
+        if let reminderSettings {
+            try reminderSettings.encode().write(to: folder.appending(path: "reminders.json"))
         }
         model = FridgeModel(
             FridgeModel.Dependencies(
@@ -32,7 +46,7 @@ struct ModelFixture {
                 readStorageHints: { StorageHints(afterOpening: [], tags: [:]) },
                 clock: DayClock(fixed: CalendarDate(year: 2026, month: 5, day: 1)!),
                 lookup: NoLookup(),
-                reminders: SilentReminders(),
+                reminders: reminders ?? SilentReminders(),
                 reminderSettings: JSONFileStore(
                     file: folder.appending(path: "reminders.json"),
                     defaultValue: .defaults,
@@ -169,6 +183,55 @@ actor RecordingPhotoService: PhotoService {
     nonisolated func cachedImage(at url: URL, pixelSize: Int) -> UIImage? { nil }
 
     func image(at url: URL, pixelSize: Int) async -> UIImage? { nil }
+}
+
+/// A reminder service that records the plans. After `holdUpdates()`, each `update` waits until the test calls
+/// `releaseUpdates()`.
+actor RecordingReminders: ReminderService {
+    /// The reminders of each `update`, in the order of the calls.
+    private(set) var updates: [[PlannedReminder]] = []
+    /// The number of `shownDates` calls.
+    private(set) var shownCalls = 0
+    private var access: NotificationAccess
+    private var holdsUpdates = false
+    private var heldUpdates: [CheckedContinuation<Void, Never>] = []
+
+    /// The number of `update` calls that wait.
+    var waitingUpdates: Int { heldUpdates.count }
+
+    init(access: NotificationAccess = .allowed) {
+        self.access = access
+    }
+
+    func holdUpdates() {
+        holdsUpdates = true
+    }
+
+    func releaseUpdates() {
+        holdsUpdates = false
+        let held = heldUpdates
+        heldUpdates = []
+        for continuation in held {
+            continuation.resume()
+        }
+    }
+
+    func access() async -> NotificationAccess { access }
+    func requestAccess() async -> NotificationAccess { access }
+
+    func shownDates() async -> Set<CalendarDate> {
+        shownCalls += 1
+        return []
+    }
+
+    func update(planned: [PlannedReminder], todayFoods: [ReminderFood], timeZone: TimeZone) async {
+        if holdsUpdates {
+            await withCheckedContinuation { heldUpdates.append($0) }
+        }
+        updates.append(planned)
+    }
+
+    nonisolated func taps() -> AsyncStream<Void> { AsyncStream { _ in } }
 }
 
 private struct NoLookup: ProductLookupService {
