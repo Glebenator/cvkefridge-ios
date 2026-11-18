@@ -38,14 +38,16 @@ The workflow [`ios.yml`](.github/workflows/ios.yml) runs for each push to `main`
 | Copy of the shared specification | `python3 scripts/update-spec.py --check` | Yes |
 | Product rules | `swift test` in `CVKEFridgeCore`, with each case in `spec/vectors/` | Yes |
 | Rules of the features | `swift test` in `CVKEFridgeCore`, the ported tests of the Android app | Yes |
-| App and test build | `xcodebuild build-for-testing`, without signing | Yes |
-| Unit tests of the app | `CVKEFridgeTests` | Yes |
-| All UI tests in light mode | `CVKEFridgeUITests` | Yes |
-| All UI tests in dark mode | `CVKEFridgeUITests` | Yes |
+| App and test build | `xcodebuild build-for-testing`, without signing, in each `app` job | Yes |
+| Unit tests of the app | `CVKEFridgeTests`, in the job `app (light)` | Yes |
+| All UI tests in light mode | `CVKEFridgeUITests`, in the job `app (light)` | Yes |
+| All UI tests in dark mode | `CVKEFridgeUITests`, in the job `app (dark)` | Yes |
 | Largest text size | `CVKEFridgeUITests`, on a Mac | No |
 | Real iPhone checks | Manual | No |
 
-Each run uploads the screenshots of the UI tests as the `ios-captures` artifact.
+The jobs `core`, `app (light)`, and `app (dark)` run at the same time. The workflow installs XcodeGen at the version
+in `XCODEGEN_VERSION`. Each `app` job uploads the screenshots of its UI tests as the `ios-captures-light` or the
+`ios-captures-dark` artifact.
 
 ## Build and run
 
