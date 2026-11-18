@@ -96,4 +96,27 @@ final class ReminderTapUITests: FridgeUITestCase {
         expectFoodThatNeedsAttention("With the app not started")
         capture("reminder-tap-cold-start")
     }
+
+    func testATapOnAReminderKeepsAChangedFormUntilThePersonClosesIt() throws {
+        launch(inventory: .sample, notifications: "system")
+        expect(app.staticTexts["hero_total"], "Home does not show the number of foods")
+        turnOnReminders()
+
+        // The person types in the add form when the reminder comes.
+        sendTestReminder()
+        tab("Add food").tap()
+        let name = expect(app.textFields["field_name"], "The add form did not open")
+        type("Kiwi", in: name)
+        selectReminder()
+
+        // The form and its text stay. The question of the form decides, and My Fridge shows after the form closed.
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "The app is not on the screen after the tap")
+        expect(app.navigationBars["Add food"], "The tap closed the changed form")
+        XCTAssertEqual(value(of: name), "Kiwi", "The form lost its text")
+        capture("reminder-tap-changed-form")
+        hideKeyboard()
+        app.buttons["form_close"].tap()
+        expect(app.buttons["Discard changes"], "The changed form did not ask before it closed").tap()
+        expectFoodThatNeedsAttention("After the form closed")
+    }
 }

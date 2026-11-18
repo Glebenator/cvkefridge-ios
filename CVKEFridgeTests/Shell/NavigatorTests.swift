@@ -71,6 +71,64 @@ struct NavigatorTests {
         #expect(navigator.sheets == [.scan(), .storageAreas])
     }
 
+    // MARK: A tap on a reminder
+
+    private let attention = FoodFilter(freshness: [.expiring, .expired])
+
+    @Test func aReminderWithNoSheetShowsMyFridgeAtOnce() {
+        let navigator = Navigator()
+        navigator.showAttention()
+        #expect(navigator.tab == .myFridge)
+        #expect(navigator.myFridgeFilter == attention)
+    }
+
+    @Test func aReminderKeepsAnOpenFormAndShowsMyFridgeWhenTheFormCloses() {
+        let navigator = Navigator()
+        navigator.addFood()
+        navigator.showAttention()
+        // The form can have changes. It stays, so that its question about the changes decides.
+        #expect(navigator.sheets == [.addFood()])
+        #expect(navigator.tab == .home)
+        #expect(navigator.myFridgeFilter != attention)
+
+        navigator.dismiss()
+        #expect(navigator.sheets.isEmpty)
+        #expect(navigator.tab == .myFridge)
+        #expect(navigator.myFridgeFilter == attention)
+    }
+
+    @Test func aReminderWaitsUntilTheLastSheetCloses() {
+        let navigator = Navigator()
+        navigator.scan()
+        let scanner = navigator.presentations[0]
+        navigator.present(.addFood(scan: scanned))
+        navigator.showAttention()
+
+        // The form closes, and the scanner stays.
+        navigator.dismiss()
+        #expect(navigator.sheets == [.scan()])
+        #expect(navigator.tab == .home)
+
+        // The person swipes the scanner down.
+        navigator.closeSheets(from: scanner)
+        #expect(navigator.tab == .myFridge)
+        #expect(navigator.myFridgeFilter == attention)
+    }
+
+    @Test func aScreenThatThePersonOpensFromASheetReplacesTheWaitingReminder() {
+        let navigator = Navigator()
+        navigator.present(.storageAreas)
+        navigator.showAttention()
+        navigator.open(.food(productId: "milk"))
+        #expect(navigator.tab == .home)
+        #expect(navigator.paths[.home] == [.food(productId: "milk")])
+
+        // The reminder does not come later.
+        navigator.present(.storageAreas)
+        navigator.dismiss()
+        #expect(navigator.tab == .home)
+    }
+
     @Test func aReplacementIsANewPresentation() {
         let navigator = Navigator()
         navigator.addFood()

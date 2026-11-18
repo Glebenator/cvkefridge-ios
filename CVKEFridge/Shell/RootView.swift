@@ -9,7 +9,8 @@ import SwiftUI
 ///   opens the form that adds food as a sheet, from each tab, and the selected tab stays.
 /// - A tap on the tab that is selected goes back to its first screen. For My Fridge it also starts My Fridge again
 ///   (see `Navigator.select`).
-/// - A tap on a reminder closes the sheets and shows My Fridge with the expiring and the expired food.
+/// - A tap on a reminder shows My Fridge with the expiring and the expired food. An open sheet stays until it closes,
+///   so that a changed form asks before it drops its changes (see `Navigator.showAttention`).
 /// - The selected tab comes back after the system stopped the app in the background.
 struct RootView: View {
     /// What the tab bar can select: a tab, or the add button.

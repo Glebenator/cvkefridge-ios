@@ -123,7 +123,18 @@ final class Navigator {
     var paths: [AppTab: [Route]] = [:]
 
     /// The sheets, the newest last. A sheet shows above the sheet before it.
-    private(set) var presentations: [SheetPresentation] = []
+    private(set) var presentations: [SheetPresentation] = [] {
+        didSet {
+            // A tap on a reminder that came while a sheet was open shows My Fridge when the last sheet closes.
+            if presentations.isEmpty, let filter = waitingAttention {
+                waitingAttention = nil
+                showMyFridge(filter)
+            }
+        }
+    }
+
+    /// The filter of a tap on a reminder that waits until all sheets close, or nil. See `showAttention(_:)`.
+    @ObservationIgnored private var waitingAttention: FoodFilter?
 
     /// The routes of the sheets, the newest last.
     var sheets: [SheetRoute] {
@@ -176,8 +187,17 @@ final class Navigator {
     }
 
     /// A tap on a reminder: My Fridge with the food that is expiring or expired, in all storage areas.
+    ///
+    /// With no sheet open, My Fridge shows at once. An open sheet stays: a form can have changes, and its question
+    /// "Discard your changes?" decides. My Fridge then shows when the last sheet closes, also after "Save". A screen
+    /// that the person opens before that (`open(_:)`) replaces the request.
     func showAttention(_ freshness: Set<Freshness> = [.expiring, .expired]) {
-        showMyFridge(FoodFilter(freshness: freshness))
+        let filter = FoodFilter(freshness: freshness)
+        if presentations.isEmpty {
+            showMyFridge(filter)
+        } else {
+            waitingAttention = filter
+        }
     }
 
     private func restartMyFridge(with filter: FoodFilter) {
@@ -195,6 +215,8 @@ final class Navigator {
     /// Opens a screen in the stack of the selected tab. The sheets close first. Two fast taps do not open the same
     /// screen two times.
     func open(_ route: Route) {
+        // The person went to a different screen. A tap on a reminder that waits does not move the person later.
+        waitingAttention = nil
         presentations = []
         if paths[tab]?.last != route {
             paths[tab, default: []].append(route)
