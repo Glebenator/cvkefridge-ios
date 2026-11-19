@@ -1,14 +1,1063 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "CVKE Fridge" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "CVKE Fridge" } } }
+    "" : {
+      "shouldTranslate" : false
     },
-    "Food inventory for the fridge. This first build has the start screen only." : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Food inventory for the fridge. This first build has the start screen only." } } }
+    "%@ Select the field to enter the printed date." : {
+      "comment" : "The value says where an estimated date comes from."
+    },
+    "%@ added" : {
+      "comment" : "The value is the name of a food."
+    },
+    "%@ added. Couldn't save the photo." : {
+      "comment" : "A message after the add form saved a food. The value is the name of the food. The message has Try again."
+    },
+    "%@ and %lld more" : {
+      "comment" : "A list of names of food, and the number of foods that are not in the list.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$lld more"
+          }
+        }
+      }
+    },
+    "%@ bottle" : {
+      "comment" : "A quantity of 1 bottle. The value is the formatted number."
+    },
+    "%@ bottles" : {
+      "comment" : "A quantity in bottles, also with a fraction. The value is the formatted number."
+    },
+    "%@ cup" : {
+      "comment" : "A quantity of 1 cup. The value is the formatted number."
+    },
+    "%@ cups" : {
+      "comment" : "A quantity in cups, also with a fraction. The value is the formatted number."
+    },
+    "%@ deleted" : {
+      "comment" : "The value is the name of a food or of a storage area."
+    },
+    "%@ g" : {
+      "comment" : "A quantity with its unit. The value is a number."
+    },
+    "%@ has %lld item. Move it to a different storage area, or record it as used or thrown away. Then delete the storage area." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ has %2$lld item. Move it to a different storage area, or record it as used or thrown away. Then delete the storage area."
+          }
+        }
+      }
+    },
+    "%@ has %lld items. Move them to a different storage area, or record them as used or thrown away. Then delete the storage area." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ has %2$lld items. Move them to a different storage area, or record them as used or thrown away. Then delete the storage area."
+          }
+        }
+      }
+    },
+    "%@ has food in it" : {
+      "comment" : "The value is the name of a storage area."
+    },
+    "%@ kg" : {
+      "comment" : "A quantity with its unit. The value is a number."
+    },
+    "%@ l" : {
+      "comment" : "A quantity with its unit. The value is a number."
+    },
+    "%@ ml" : {
+      "comment" : "A quantity with its unit. The value is a number."
+    },
+    "%@ now expires on %@" : {
+      "comment" : "A message. The values are the name of a food and a date.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ now expires on %2$@"
+          }
+        }
+      }
+    },
+    "%@ of %@ thrown away" : {
+      "comment" : "For example: 200 g of Baby spinach thrown away.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of %2$@ thrown away"
+          }
+        }
+      }
+    },
+    "%@ of %@ used" : {
+      "comment" : "For example: 1.5 l of Whole milk used.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ of %2$@ used"
+          }
+        }
+      }
+    },
+    "%@ pack" : {
+      "comment" : "A quantity of 1 pack. The value is the formatted number."
+    },
+    "%@ packs" : {
+      "comment" : "A quantity in packs, also with a fraction. The value is the formatted number."
+    },
+    "%@ pcs" : {
+      "comment" : "A quantity with its unit. The value is a number."
+    },
+    "%@ saved" : {
+      "comment" : "The value is the name of a food that the person edited."
+    },
+    "%@ slice" : {
+      "comment" : "A quantity of 1 slice. The value is the formatted number."
+    },
+    "%@ slices" : {
+      "comment" : "A quantity in slices, also with a fraction. The value is the formatted number."
+    },
+    "%@ with no unit" : {
+      "comment" : "A sum of quantities of food that has no unit. The value is a number.\nA sum of the quantities of foods that have no unit."
+    },
+    "%@ %@" : {
+      "comment" : "The icon of the status of a food, and its days left.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@%@ %@" : {
+      "comment" : "The quantity of a food, the icon of its status, and its days left.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@ %3$@"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "comment" : "A food and the text that tells it from other foods.\nFor VoiceOver: a food and the alias that agrees with the typed name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@, %@, %@" : {
+      "comment" : "For VoiceOver: one History entry. The values are the food, the quantity, Used or Thrown away, and the day.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@, %3$@, %4$@"
+          }
+        }
+      }
+    },
+    "%@, estimated" : {
+      "comment" : "The value is the days left or a date that the app estimated."
+    },
+    "%@. %@ button available." : {
+      "comment" : "VoiceOver reads it when a message comes. The values are the message and the name of its button.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@. %2$@ button available."
+          }
+        }
+      }
+    },
+    "%@: %@" : {
+      "comment" : "The days left of a food, and its name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: %2$@"
+          }
+        }
+      }
+    },
+    "%@: you have %@. The quantity comes from the oldest batch first." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@: you have %2$@. The quantity comes from the oldest batch first."
+          }
+        }
+      }
+    },
+    "%lld batches" : {
+      "comment" : "A number of batches of one food. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld batch"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld batches"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld batches of %@ deleted" : {
+      "comment" : "A message with Undo. The values are the number of batches and the name of the food. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$#@batches@ of %2$@ deleted"
+          },
+          "substitutions" : {
+            "batches" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg batch"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg batches"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld changes in the inventory file can't be read. The other food is here." : {
+      "comment" : "A message after the start. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld change in the inventory file can't be read. The other food is here."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changes in the inventory file can't be read. The other food is here."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld days before the expiry date" : {
+      "comment" : "A lead time of the reminders. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld day before the expiry date"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld days before the expiry date"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld expiry dates" : {
+      "comment" : "The number of different expiry dates of the batches of one food. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld expiry date"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld expiry dates"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items" : {
+      "comment" : "A number of foods. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld items need attention" : {
+      "comment" : "The title of a reminder notification. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld item needs attention"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld items need attention"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "+1 day" : {},
+    "+1 week" : {},
+    ", " : {
+      "comment" : "Between two names of food in a reminder."
+    },
+    "A digit is not correct. Check the digits." : {},
+    "About" : {},
+    "About %lld days." : {
+      "comment" : "How long a food keeps. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld day."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld days."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "About %lld months." : {
+      "comment" : "How long a food keeps. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld month."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld months."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "About %lld weeks." : {
+      "comment" : "How long a food keeps. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld week."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld weeks."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "About %lld years." : {
+      "comment" : "How long a food keeps. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld year."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "About %lld years."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Add %@ again" : {
+      "comment" : "For VoiceOver: the button of a History entry. The value is the food."
+    },
+    "Add a batch" : {},
+    "Add a note" : {},
+    "Add a storage area" : {},
+    "Add again" : {},
+    "Add by hand" : {},
+    "Add food" : {},
+    "Added %@" : {
+      "comment" : "The day that a batch was added. The value is a date."
+    },
+    "Adding the photo…" : {},
+    "All" : {
+      "comment" : "The tab of all storage areas."
+    },
+    "All categories" : {},
+    "All fresh" : {},
+    "All time" : {},
+    "Allow notifications" : {},
+    "Allow the camera" : {},
+    "And %lld more" : {
+      "comment" : "The number of foods that have no line in a reminder."
+    },
+    "Another app can use the camera now. Close that app, or type the barcode." : {},
+    "Another food has this name." : {},
+    "Another storage area has this name." : {},
+    "Ascending order" : {},
+    "Bakery" : {},
+    "Barcode" : {
+      "comment" : "The number of the barcode of a product."
+    },
+    "Barcode %@. The app keeps it with the food, so the next scan finds it." : {},
+    "Batch of %@ saved" : {
+      "comment" : "The value is the name of a food."
+    },
+    "Beverage" : {},
+    "CVKE Fridge uses the camera to read barcodes, and to take a photo of a food when you ask. The pictures stay on your phone. The app does not send them." : {},
+    "Camera access is off" : {},
+    "Camera picture. Point the camera at a barcode." : {
+      "comment" : "VoiceOver reads it for the picture of the camera of the scanner."
+    },
+    "Can't read the barcode? Hold it flat and still, 10 to 20 cm from the camera. Turn on the light, or type the barcode." : {},
+    "Can't read the barcode? Hold it flat and still, 10 to 20 cm from the camera. You can also type the barcode." : {},
+    "Cancel" : {},
+    "Category" : {
+      "comment" : "The kind of a food, for example Dairy."
+    },
+    "Change photo" : {},
+    "Change the unit" : {},
+    "Change the unit to %@?" : {},
+    "Changes the direction of the sort order." : {},
+    "Choose a photo" : {},
+    "Clear filters" : {},
+    "Close" : {
+      "comment" : "For VoiceOver: the button that closes the scanner."
+    },
+    "Closes this offer. You can turn on reminders in Settings." : {},
+    "Condiment" : {},
+    "Continue" : {},
+    "Couldn't add the batch. Try again." : {},
+    "Couldn't add the photo. Select a different picture." : {},
+    "Couldn't load items. The inventory file can't be read." : {},
+    "Couldn't read the reminder settings. The planned reminders stay. A change here saves new settings." : {},
+    "Couldn't remove the photo. Try again." : {},
+    "Couldn't save the change. The inventory file can't be written." : {},
+    "Couldn't save the setting. Try again." : {},
+    "Couldn't save. The inventory file can't be written. Your entries are still here. Try again." : {},
+    "Dairy" : {},
+    "Date added" : {},
+    "Delete" : {
+      "comment" : "An action that deletes a storage area, a food, or a batch."
+    },
+    "Delete batch" : {},
+    "Delete food" : {},
+    "Descending order" : {},
+    "Discard changes" : {},
+    "Discard your changes?" : {},
+    "Done" : {
+      "comment" : "A button that closes the keyboard or a list."
+    },
+    "Edit" : {
+      "comment" : "For VoiceOver: an action that opens the form of a storage area."
+    },
+    "Edit batch" : {},
+    "Edit food" : {},
+    "Edit storage area" : {},
+    "Edit the note" : {},
+    "Enter a name." : {},
+    "Enter a number, for example %@." : {},
+    "Enter a quantity above 0." : {},
+    "Enter a quantity." : {},
+    "Enter by hand" : {},
+    "Enter the 8, 12, 13, or 14 digits below the lines of the barcode." : {},
+    "Estimate for %@ (%@): %lld days." : {
+      "comment" : "Where an estimate comes from. The values are a food, a storage kind, and a number of days. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estimate for %1$@ (%2$@): %3$#@days@."
+          },
+          "substitutions" : {
+            "days" : {
+              "argNum" : 3,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg day"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg days"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Estimated date: %@" : {},
+    "Expired" : {
+      "comment" : "A freshness: the expiry date is before today."
+    },
+    "Expired %lldd ago" : {
+      "comment" : "\"d\" is the short form of \"days\"."
+    },
+    "Expired yesterday" : {},
+    "Expires in %lld days" : {
+      "comment" : "A line of a reminder notification. The catalog has the plural forms.",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Expires in %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Expires in %lldd" : {
+      "comment" : "\"d\" is the short form of \"days\"."
+    },
+    "Expires today" : {},
+    "Expires tomorrow" : {},
+    "Expiring" : {
+      "comment" : "A freshness: the food expires soon."
+    },
+    "Expiry" : {
+      "comment" : "A sort order: by expiry date."
+    },
+    "Expiry date" : {},
+    "Expiry estimates" : {},
+    "Expiry reminders" : {},
+    "Filter" : {
+      "comment" : "The name of the menu that filters the History entries."
+    },
+    "Fixed" : {
+      "comment" : "The kind of a storage area that the person cannot change or delete: Fridge and Freezer."
+    },
+    "Food" : {
+      "comment" : "The title of the screen of one food while the food is not loaded."
+    },
+    "For example: opened on Sunday" : {},
+    "Freezer" : {},
+    "Freshness: %@, %@" : {
+      "comment" : "For VoiceOver: a freshness filter and its number of foods, for example \"Freshness: Expiring, 3 items\".",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Freshness: %1$@, %2$@"
+          }
+        }
+      }
+    },
+    "Fridge" : {},
+    "Fridge and Freezer are always here. Add a storage area for a pantry, or for a second fridge or freezer." : {},
+    "Fridge and Freezer are fixed. You can't change or delete them." : {},
+    "From Open Food Facts. Check the values before you save." : {},
+    "From the package" : {},
+    "General advice for %@" : {
+      "comment" : "The value is the name of a food of the table of foods, for example \"Bananas\"."
+    },
+    "Get a reminder before food expires" : {},
+    "Good afternoon" : {},
+    "Good evening" : {},
+    "Good morning" : {},
+    "History" : {},
+    "Home" : {},
+    "How much was thrown away?" : {},
+    "How much was used?" : {},
+    "In your inventory" : {},
+    "Keep editing" : {},
+    "Last month" : {},
+    "Leftovers" : {},
+    "Loading" : {
+      "comment" : "For VoiceOver: the app reads its data."
+    },
+    "Loading…" : {},
+    "Look up" : {},
+    "Looking up barcode %@…" : {
+      "comment" : "The value is a barcode."
+    },
+    "Made by" : {
+      "comment" : "Before the mark of the maker, \"cvke\". Do not translate the mark."
+    },
+    "Made by cvke" : {
+      "comment" : "\"cvke\" is the name of the maker. Do not translate \"cvke\"."
+    },
+    "Manage storage areas" : {},
+    "Meat" : {},
+    "More actions" : {},
+    "More actions for %@" : {},
+    "More actions for this batch" : {},
+    "My Fridge" : {},
+    "Name" : {
+      "comment" : "The name of a food or of a storage area."
+    },
+    "Needs attention" : {},
+    "Next reminder: %@ at %@." : {
+      "comment" : "The values are a date and a time.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Next reminder: %1$@ at %2$@."
+          }
+        }
+      }
+    },
+    "Next reminder: today at %@." : {},
+    "Next reminder: tomorrow at %@." : {},
+    "No camera on this device" : {},
+    "No connection" : {},
+    "No expiry" : {},
+    "No expiry date" : {},
+    "No items yet" : {},
+    "No matching items" : {},
+    "No reminder is planned, because no food needs attention." : {},
+    "No unit" : {},
+    "Not available while the app adds the photo." : {},
+    "Not now" : {},
+    "Note" : {
+      "comment" : "A short text of the person about a food."
+    },
+    "Note of %@ removed" : {
+      "comment" : "The value is the name of a food."
+    },
+    "Note of %@ saved" : {
+      "comment" : "The value is the name of a food."
+    },
+    "Nothing has expired, and nothing expires in the next %lld days." : {},
+    "Nothing has expired, and nothing expires in the next day." : {},
+    "Nothing thrown away yet" : {},
+    "Nothing used or thrown away yet" : {},
+    "Nothing used yet" : {},
+    "Nothing was used or thrown away in this time." : {},
+    "Notifications are off" : {},
+    "Notifications for CVKE Fridge are not allowed, so reminders cannot show." : {},
+    "Notifications for CVKE Fridge are off in the settings of iOS, so reminders cannot show." : {},
+    "Notifications for CVKE Fridge are off. To get reminders, open the settings and turn them on." : {},
+    "OK" : {},
+    "On the expiry date" : {},
+    "One notification a day at %@ names the food that expires soon. You can change the time in Settings." : {},
+    "One notification a day names the food that expires soon or expired yesterday." : {},
+    "Only the barcode number goes to Open Food Facts, to find the product name. Nothing else leaves your phone." : {},
+    "Open Food Facts did not answer" : {},
+    "Open Food Facts has a problem" : {},
+    "Open Food Facts has no product with this barcode. Type the name." : {},
+    "Open Settings" : {},
+    "Open settings" : {},
+    "Opens the food." : {},
+    "Opens the form of the storage area." : {},
+    "Opens the scanner." : {},
+    "Other" : {
+      "comment" : "A category of food."
+    },
+    "Other date" : {},
+    "Pantry" : {},
+    "Period" : {
+      "comment" : "The name of the menu of the time period of the History summary."
+    },
+    "Photo" : {
+      "comment" : "The title of the photo row of the add form."
+    },
+    "Photo changed" : {},
+    "Photo of %@" : {
+      "comment" : "VoiceOver reads it for the photo of a food. The value is the name of the food."
+    },
+    "Photo of the food" : {},
+    "Photo removed" : {},
+    "Point the camera at the barcode." : {},
+    "Printed date, from the package." : {},
+    "Printed date: %@" : {},
+    "Produce" : {},
+    "Product lookup" : {
+      "comment" : "The service that finds the name of a product from its barcode."
+    },
+    "Puts this name in the form." : {},
+    "Quantity" : {
+      "comment" : "The amount of a food."
+    },
+    "Recent" : {
+      "comment" : "The header of the list of foods that the person added before."
+    },
+    "Records the quantity as thrown away." : {},
+    "Records the quantity as used." : {},
+    "Remind me" : {},
+    "Reminders" : {},
+    "Reminders are notifications. Next, iOS asks if CVKE Fridge can send notifications. The app sends not more than one a day, and only when food needs attention. The app makes the reminder on your phone. No data leaves your phone." : {},
+    "Reminders are on" : {},
+    "Remove %@ from Recent" : {},
+    "Remove photo" : {},
+    "Remove the unit?" : {},
+    "Sample data" : {
+      "comment" : "A label on a demo. The data is not the data of the person."
+    },
+    "Save" : {},
+    "Save and add another" : {},
+    "Save and scan next" : {},
+    "Scan a barcode" : {},
+    "Scan again" : {},
+    "Scan barcodes with the camera" : {},
+    "Search items" : {},
+    "Select" : {
+      "comment" : "A menu with no selected value. The person must select a value."
+    },
+    "Select a storage area." : {},
+    "Settings" : {},
+    "Show %lld entry" : {},
+    "Show all %lld entries" : {},
+    "Show in My Fridge" : {},
+    "Shows the food of one category." : {},
+    "Shows the version and the maker of the app." : {},
+    "Sort by" : {},
+    "Sort by %@" : {
+      "comment" : "For VoiceOver. The value is the sort order, for example \"Expiry\"."
+    },
+    "Still good: expires 1 day later" : {},
+    "Still good: expires 1 week later" : {},
+    "Still good: select a new expiry date" : {},
+    "Still good?" : {},
+    "Storage area" : {},
+    "Storage areas" : {},
+    "Storage kind" : {
+      "comment" : "Pantry, Fridge, or Freezer: the kind of a storage area."
+    },
+    "Storage tips" : {},
+    "Take a photo" : {},
+    "Take a photo with the camera" : {},
+    "The 8, 12, 13, or 14 digits below the lines of the barcode." : {},
+    "The answer took too long. Try again, or enter the food by hand. The app keeps barcode %@ with the food." : {
+      "comment" : "The value is a barcode."
+    },
+    "The app converts the quantities of the batches to the new unit." : {},
+    "The app converts the quantities of the batches. For example, %@ becomes %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The app converts the quantities of the batches. For example, %1$@ becomes %2$@."
+          }
+        }
+      }
+    },
+    "The app could not look up this barcode. Type the name." : {},
+    "The app has no estimate for this food here. Select the field to enter the printed date." : {},
+    "The app keeps the barcode with the food, so the next scan finds it. You can't change it here." : {},
+    "The app suggested this date." : {},
+    "The barcode fills in the form" : {},
+    "The camera can't start" : {},
+    "The expiry estimates and the storage advice come from the USDA FoodKeeper data." : {},
+    "The name is too long. Use %lld characters or fewer." : {},
+    "The numbers of the batches stay. For example, %@ becomes %@. The app can't convert between these two units." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The numbers of the batches stay. For example, %1$@ becomes %2$@. The app can't convert between these two units."
+          }
+        }
+      }
+    },
+    "The numbers of the batches stay. The app can't convert between these two units." : {},
+    "The product lookup needs the internet. Try again, or enter the food by hand. The app keeps barcode %@ with the food." : {
+      "comment" : "The value is a barcode."
+    },
+    "The product of a barcode comes from Open Food Facts." : {},
+    "The quantity is too large." : {},
+    "The reminder comes only when food needs attention. iOS sends it at this time, but a Focus or the Scheduled Summary can hold it until later." : {},
+    "The storage kind gives the estimated date of the food in this storage area." : {},
+    "The unit is the unit of all batches of this food." : {},
+    "This advice is about the food in general, not about this product. It comes from the USDA FoodKeeper data." : {},
+    "This batch has no expiry date. Select the field to enter the printed date." : {},
+    "This batch has no quantity left." : {},
+    "This batch is no longer in the inventory." : {},
+    "This can't be undone." : {},
+    "This food has a note. An empty field keeps it." : {},
+    "This food is in your inventory. The form adds a batch to it." : {},
+    "This food is no longer in the inventory." : {},
+    "This month" : {},
+    "This storage area has food in it. Move the food, or record it as used or thrown away, and then delete the storage area." : {},
+    "This storage area is no longer there. Select a different one." : {},
+    "This text is about this product. It comes from Open Food Facts." : {},
+    "Thrown away" : {
+      "comment" : "A button and a History filter: the food went into the waste."
+    },
+    "Thrown away most often" : {},
+    "Thrown away: %@ from %lld batch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Thrown away: %1$@ from %2$lld batch"
+          }
+        }
+      }
+    },
+    "Thrown away: %@ from %lld batches" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Thrown away: %1$@ from %2$lld batches"
+          }
+        }
+      }
+    },
+    "Thrown away…" : {},
+    "Time" : {
+      "comment" : "The time of day of the reminder, in Settings."
+    },
+    "To scan a barcode, open the settings of the app and allow the camera. You can also type the barcode, or add the food by hand." : {},
+    "To take a photo of the food, CVKE Fridge needs the camera. The photo stays on your device. The app does not send it. Next, iOS asks if CVKE Fridge can use the camera." : {},
+    "Today" : {
+      "comment" : "The header of the History entries of today."
+    },
+    "Too many lookups" : {},
+    "Total items" : {},
+    "Try again" : {},
+    "Try again later, or enter the food by hand. The app keeps barcode %@ with the food." : {
+      "comment" : "The value is a barcode."
+    },
+    "Turn off the light" : {},
+    "Turn on" : {
+      "comment" : "A button that turns on the reminders."
+    },
+    "Turn on the light" : {},
+    "Turns on the reminder of each day." : {},
+    "Type the barcode" : {},
+    "Type the barcode, or add the food by hand." : {},
+    "Undo" : {},
+    "Unit" : {
+      "comment" : "The unit of a quantity, for example g or l."
+    },
+    "Use 3 decimal places or fewer." : {},
+    "Use first" : {
+      "comment" : "A label on the batch that the person must use before the others."
+    },
+    "Use the estimated date" : {},
+    "Used" : {
+      "comment" : "A button and a History filter: the food was eaten or used."
+    },
+    "Used and thrown away" : {},
+    "Used: %@ from %lld batch" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Used: %1$@ from %2$lld batch"
+          }
+        }
+      }
+    },
+    "Used: %@ from %lld batches" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Used: %1$@ from %2$lld batches"
+          }
+        }
+      }
+    },
+    "Used…" : {},
+    "Usual place: %@" : {
+      "comment" : "The value is a storage kind: Pantry, Fridge, or Freezer."
+    },
+    "Version" : {
+      "comment" : "The version number of the app, in Settings."
     },
     "Version %@" : {
-      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Version %@" } } }
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Version %@"
+          }
+        }
+      }
+    },
+    "View all" : {},
+    "Wait one minute and try again, or enter the food by hand. The app keeps barcode %@ with the food." : {
+      "comment" : "The value is a barcode."
+    },
+    "When you record food as used or as thrown away, it shows here." : {},
+    "Yesterday" : {
+      "comment" : "The header of the History entries of yesterday."
+    },
+    "You can save when the photo is ready." : {},
+    "You can turn on reminders in Settings at any time." : {},
+    "You had this before" : {},
+    "You had this food before. The form adds a new batch to it." : {},
+    "You have none of this food now" : {},
+    "You have only %@." : {
+      "comment" : "The value is a quantity with its unit."
+    },
+    "Your Kitchen" : {},
+    "Your date: %@" : {},
+    "Your date: you said that the food is still good. Select the field to enter a printed date." : {},
+    "Your inventory stays on this iPhone. When you scan or type a barcode, only the barcode number goes to Open Food Facts. The expiry estimates use the FoodKeeper data of the USDA FSIS (CC0 1.0)." : {},
+    "batch thrown away" : {
+      "comment" : "Below the number of batches of the History summary."
+    },
+    "batch used" : {
+      "comment" : "Below the number of batches of the History summary."
+    },
+    "batches thrown away" : {
+      "comment" : "Below the number of batches of the History summary."
+    },
+    "batches used" : {
+      "comment" : "Below the number of batches of the History summary."
+    },
+    "bottle" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "cup" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "g" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "iOS does not ask again. To take a photo, open Settings, select CVKE Fridge, and allow the camera. You can also choose a photo." : {},
+    "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners. To get reminders, open the settings and turn one of them on." : {},
+    "iOS does not show the notifications of CVKE Fridge on the Lock Screen, in Notification Center, or as banners, so reminders cannot show." : {},
+    "kg" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "l" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "ml" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "pack" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "pcs" : {
+      "comment" : "The name of a unit in a list of units."
+    },
+    "slice" : {
+      "comment" : "The name of a unit in a list of units."
     }
   },
   "version" : "1.0"

@@ -17,3 +17,6 @@ __pycache__/
 .DS_Store
 .env
 .env.*
+
+# Worktrees of agents.
+/.claude/

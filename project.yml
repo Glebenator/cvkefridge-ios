@@ -25,8 +25,17 @@ targets:
     platform: iOS
     sources:
       - path: CVKEFridge
+      # The two tables of the shared specification go into the app as they are. Do not copy them: spec/ is the
+      # reference (see AGENTS.md).
+      - path: spec/foods.json
+        buildPhase: resources
+      - path: spec/storage-hints.json
+        buildPhase: resources
     dependencies:
       - package: CVKEFridgeCore
+        product: CVKEFridgeCore
+      - package: CVKEFridgeCore
+        product: CVKEFridgeFeatures
     info:
       path: CVKEFridge/Info.plist
       properties:
@@ -48,6 +57,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: CVKE Fridge uses the camera only to read barcodes and to take a photo of a food. The picture stays on your iPhone.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge
@@ -55,6 +65,21 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
+  # The unit tests of the app code that needs the system: they run in the app, on a simulator. The tests of the
+  # product rules are in the CVKEFridgeCore package.
+  CVKEFridgeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: CVKEFridgeTests
+    dependencies:
+      - target: CVKEFridge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.cvkefridge.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CVKEFridge.app/CVKEFridge
+        BUNDLE_LOADER: $(TEST_HOST)
   CVKEFridgeUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -72,12 +97,14 @@ schemes:
     build:
       targets:
         CVKEFridge: all
+        CVKEFridgeTests: [test]
         CVKEFridgeUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
+        - name: CVKEFridgeTests
         - name: CVKEFridgeUITests
     archive:
       config: Release
